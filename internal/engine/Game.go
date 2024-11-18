@@ -2,7 +2,9 @@ package engine
 
 import (
 	"fmt"
+	"leveling/internal/constract"
 	"leveling/internal/hero"
+	"leveling/internal/weapons"
 )
 
 type Game struct {
@@ -15,15 +17,18 @@ func NewGame() Game {
 func (g Game) Start() {
 	fmt.Println("Game started")
 	g.gameLoop()
+	fmt.Println("Game finished")
 }
 
 func (g Game) gameLoop() {
-	brian := &hero.Hero{Name: "brian", Health: 100, AttackType: hero.StraightSword, Strength: 6}
-	taras := &hero.Hero{Name: "taras", Health: 100, AttackType: hero.Claw, Strength: 8}
-	heroes := []*hero.Hero{brian, taras}
+	heroes := []*hero.Hero{
+		newBrian(),
+		newTaras(),
+	}
 attackRound:
 	for {
-		heroes[0].Attack(heroes[1])
+		iHero := constract.IHero(heroes[1])
+		heroes[0].Attack(&iHero)
 		for _, h := range heroes {
 			if h.IsDie() {
 				break attackRound
@@ -31,6 +36,20 @@ attackRound:
 		}
 		heroes = append(heroes[1:], heroes[0])
 	}
-	//fmt.Printf("The winner is %s\n", brian.Name)
-	fmt.Println("Game finished")
+}
+
+func newBrian() *hero.Hero {
+	char := &hero.Hero{Name: "Brian", Health: 100, Strength: 6}
+	weapon := weapons.NewWeapon(constract.Sword)
+	char.Hold(&weapon)
+
+	return char
+}
+
+func newTaras() *hero.Hero {
+	char := &hero.Hero{Name: "Taras", Health: 100, Strength: 8}
+	TarasWeapon := weapons.NewWeapon(constract.Axe)
+	char.Hold(&TarasWeapon)
+
+	return char
 }
