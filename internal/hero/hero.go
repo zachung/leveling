@@ -3,6 +3,8 @@ package hero
 import (
 	"fmt"
 	"leveling/internal/constract"
+	"leveling/internal/entity"
+	"leveling/internal/weapons"
 )
 
 type Hero struct {
@@ -10,6 +12,19 @@ type Hero struct {
 	Health   int
 	MainHand *constract.IWeapon
 	Strength int
+}
+
+func New(data entity.Hero) *Hero {
+	weapon := weapons.NewWeapon(data.MainHand)
+	hero := &Hero{
+		Name:     data.Name,
+		Health:   data.Health,
+		Strength: data.Strength,
+		MainHand: &weapon,
+	}
+	hero.Hold(&weapon)
+
+	return hero
 }
 
 func (hero *Hero) Hold(weapon *constract.IWeapon) {

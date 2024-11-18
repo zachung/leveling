@@ -1,10 +1,11 @@
 package engine
 
 import (
+	"encoding/json"
 	"fmt"
 	"leveling/internal/constract"
+	"leveling/internal/entity"
 	"leveling/internal/hero"
-	"leveling/internal/weapons"
 )
 
 type Game struct {
@@ -34,8 +35,13 @@ func (g *Game) Start() {
 }
 
 func (g *Game) gameInitial() {
-	g.heroes = append(g.heroes, newBrian())
-	g.heroes = append(g.heroes, newTaras())
+	heroData := []string{
+		`{"name": "Brian", "Health": 100, "Strength": 6, "mainHand": 0}`,
+		`{"name": "Taras", "Health": 100, "Strength": 8, "mainHand": 2}`,
+	}
+	for _, data := range heroData {
+		g.heroes = append(g.heroes, newHero(data))
+	}
 }
 
 func (g *Game) gameLoop() {
@@ -51,18 +57,13 @@ func (g *Game) gameLoop() {
 	g.heroes = append(heroes[1:], heroes[0])
 }
 
-func newBrian() *hero.Hero {
-	char := &hero.Hero{Name: "Brian", Health: 100, Strength: 6}
-	weapon := weapons.NewWeapon(constract.Sword)
-	char.Hold(&weapon)
-
-	return char
-}
-
-func newTaras() *hero.Hero {
-	char := &hero.Hero{Name: "Taras", Health: 100, Strength: 8}
-	TarasWeapon := weapons.NewWeapon(constract.Axe)
-	char.Hold(&TarasWeapon)
+func newHero(s string) *hero.Hero {
+	data := entity.Hero{}
+	err := json.Unmarshal([]byte(s), &data)
+	if err != nil {
+		return nil
+	}
+	char := hero.New(data)
 
 	return char
 }
