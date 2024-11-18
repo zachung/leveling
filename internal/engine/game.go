@@ -1,11 +1,10 @@
 package engine
 
 import (
-	"encoding/json"
 	"fmt"
 	"leveling/internal/constract"
-	"leveling/internal/entity"
 	"leveling/internal/hero"
+	"leveling/internal/repository"
 )
 
 type Game struct {
@@ -35,13 +34,8 @@ func (g *Game) Start() {
 }
 
 func (g *Game) gameInitial() {
-	heroData := []string{
-		`{"name": "Brian", "Health": 100, "Strength": 6, "mainHand": 0}`,
-		`{"name": "Taras", "Health": 100, "Strength": 8, "mainHand": 2}`,
-		`{"name": "Sin", "Health": 100, "Strength": 8, "mainHand": 1}`,
-	}
-	for _, data := range heroData {
-		g.heroes = append(g.heroes, newHero(data))
+	for _, data := range repository.GetHeroData() {
+		g.heroes = append(g.heroes, hero.New(data))
 	}
 }
 
@@ -62,15 +56,4 @@ func (g *Game) gameLoop() {
 	}
 	// 輪到下一個 hero
 	g.heroes = append(heroes[1:], heroes[0])
-}
-
-func newHero(s string) *constract.IHero {
-	data := entity.Hero{}
-	err := json.Unmarshal([]byte(s), &data)
-	if err != nil {
-		return nil
-	}
-	iHero := constract.IHero(hero.New(data))
-
-	return &iHero
 }

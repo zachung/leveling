@@ -14,7 +14,7 @@ type Hero struct {
 	Strength int
 }
 
-func New(data entity.Hero) *Hero {
+func New(data entity.Hero) *constract.IHero {
 	weapon := weapons.NewWeapon(data.MainHand)
 	hero := &Hero{
 		Name:     data.Name,
@@ -25,7 +25,7 @@ func New(data entity.Hero) *Hero {
 	iHero := constract.IHero(hero)
 	weapon.SetHolder(&iHero)
 
-	return hero
+	return &iHero
 }
 
 func (hero *Hero) Attack(targets []*constract.IHero) {
