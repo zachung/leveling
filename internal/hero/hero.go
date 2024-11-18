@@ -22,15 +22,10 @@ func New(data entity.Hero) *Hero {
 		Strength: data.Strength,
 		MainHand: &weapon,
 	}
-	hero.Hold(&weapon)
+	iHero := constract.IHero(hero)
+	weapon.SetHolder(&iHero)
 
 	return hero
-}
-
-func (hero *Hero) Hold(weapon *constract.IWeapon) {
-	hero.MainHand = weapon
-	iHero := constract.IHero(hero)
-	(*weapon).SetHolder(&iHero)
 }
 
 func (hero *Hero) Attack(target *constract.IHero) {
