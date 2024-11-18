@@ -28,8 +28,8 @@ func New(data entity.Hero) *Hero {
 	return hero
 }
 
-func (hero *Hero) Attack(target *constract.IHero) {
-	(*hero.MainHand).Attack(target)
+func (hero *Hero) Attack(targets []*constract.IHero) {
+	(*hero.MainHand).Attack(targets[0])
 }
 
 func (hero *Hero) ApplyDamage(from *constract.IHero, damage int) {
