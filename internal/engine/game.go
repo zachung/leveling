@@ -8,34 +8,47 @@ import (
 )
 
 type Game struct {
+	isFinish bool
+	heroes   []*hero.Hero
 }
 
 func NewGame() Game {
-	return Game{}
+	return Game{false, make([]*hero.Hero, 0)}
 }
 
-func (g Game) Start() {
+func (g *Game) IsFinish() bool {
+	return g.isFinish
+}
+
+func (g *Game) Start() {
+	fmt.Println("Game initialing")
+	g.gameInitial()
 	fmt.Println("Game started")
-	g.gameLoop()
+	for {
+		g.gameLoop()
+		if g.isFinish {
+			break
+		}
+	}
 	fmt.Println("Game finished")
 }
 
-func (g Game) gameLoop() {
-	heroes := []*hero.Hero{
-		newBrian(),
-		newTaras(),
-	}
-attackRound:
-	for {
-		iHero := constract.IHero(heroes[1])
-		heroes[0].Attack(&iHero)
-		for _, h := range heroes {
-			if h.IsDie() {
-				break attackRound
-			}
+func (g *Game) gameInitial() {
+	g.heroes = append(g.heroes, newBrian())
+	g.heroes = append(g.heroes, newTaras())
+}
+
+func (g *Game) gameLoop() {
+	heroes := g.heroes
+	iHero := constract.IHero(heroes[1])
+	heroes[0].Attack(&iHero)
+	for _, h := range heroes {
+		if h.IsDie() {
+			g.isFinish = true
+			return
 		}
-		heroes = append(heroes[1:], heroes[0])
 	}
+	g.heroes = append(heroes[1:], heroes[0])
 }
 
 func newBrian() *hero.Hero {
