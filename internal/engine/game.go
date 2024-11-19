@@ -5,15 +5,24 @@ import (
 	"leveling/internal/constract"
 	"leveling/internal/hero"
 	"leveling/internal/repository"
+	"leveling/internal/utils"
+	"time"
 )
 
 type Game struct {
 	isFinish bool
 	heroes   []*constract.IHero
+	lastTime time.Time
+	speed    int
 }
 
 func NewGame() Game {
-	return Game{false, make([]*constract.IHero, 0)}
+	return Game{
+		isFinish: false,
+		heroes:   make([]*constract.IHero, 0),
+		lastTime: utils.Now(),
+		speed:    4,
+	}
 }
 
 func (g *Game) IsFinish() bool {
@@ -40,9 +49,25 @@ func (g *Game) gameInitial() {
 }
 
 func (g *Game) gameLoop() {
-	heroes := g.heroes
+	// time
+	now := utils.Now()
+	defer func() {
+		g.lastTime = now
+	}()
+
+	seconds := now.Sub(g.lastTime).Seconds()
+
+	g.gameUpdate(seconds * float64(g.speed))
+	g.gameRender()
+}
+
+func (g *Game) gameUpdate(dt float64) {
 	// 多個 hero 進入攻擊視野
-	(*heroes[0]).Attack(g.heroes[1:])
+	(*g.heroes[0]).Attack(dt, g.heroes[1:])
+}
+
+func (g *Game) gameRender() {
+	heroes := g.heroes
 	// 輪番檢查死亡狀態
 	for i := len(heroes) - 1; i >= 0; i-- {
 		if (*heroes[i]).IsDie() {

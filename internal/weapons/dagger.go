@@ -11,7 +11,8 @@ type dagger struct {
 func newDagger() constract.IWeapon {
 	return &dagger{
 		Weapon: Weapon{
-			power: 2,
+			power: 1,
+			speed: 1.5,
 		},
 	}
 }

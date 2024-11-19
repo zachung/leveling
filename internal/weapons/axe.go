@@ -12,6 +12,7 @@ func newAxe() constract.IWeapon {
 	return &axe{
 		Weapon: Weapon{
 			power: 6,
+			speed: 4,
 		},
 	}
 }

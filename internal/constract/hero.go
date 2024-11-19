@@ -1,7 +1,7 @@
 package constract
 
 type IHero interface {
-	Attack(targets []*IHero)
+	Attack(dt float64, targets []*IHero)
 	ApplyDamage(from *IHero, damage int)
 	IsDie() bool
 }
