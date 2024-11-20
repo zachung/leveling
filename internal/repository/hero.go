@@ -9,7 +9,7 @@ func GetHeroData() (heroesEntity []entity.Hero) {
 	heroJsonData := []string{
 		`{"name": "Brian", "Health": 100, "Strength": 6, "mainHand": 0}`,
 		`{"name": "Taras", "Health": 100, "Strength": 8, "mainHand": 2}`,
-		`{"name": "Sin", "Health": 100, "Strength": 1, "mainHand": 1}`,
+		`{"name": "Sin", "Health": 100, "Strength": 2, "mainHand": 1}`,
 	}
 	for _, jsonDatum := range heroJsonData {
 		data := entity.Hero{}

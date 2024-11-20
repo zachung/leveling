@@ -12,13 +12,11 @@ func newDagger() constract.IWeapon {
 	return &dagger{
 		Weapon: Weapon{
 			power: 1,
-			speed: 1.5,
+			speed: 1,
 		},
 	}
 }
 
 func (weapon dagger) Attack(hero *constract.IHero) {
-	for i := 0; i < 4; i++ {
-		(*hero).ApplyDamage(weapon.holder, weapon.power)
-	}
+	(*hero).ApplyDamage(weapon.holder, weapon.power)
 }

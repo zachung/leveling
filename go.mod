@@ -1,3 +1,5 @@
 module leveling
 
-go 1.21.13
+go 1.23
+
+toolchain go1.23.2

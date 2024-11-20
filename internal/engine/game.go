@@ -11,7 +11,7 @@ import (
 
 type Game struct {
 	isFinish bool
-	heroes   []*constract.IHero
+	round    *Round
 	lastTime time.Time
 	speed    int
 }
@@ -19,33 +19,38 @@ type Game struct {
 func NewGame() Game {
 	return Game{
 		isFinish: false,
-		heroes:   make([]*constract.IHero, 0),
 		lastTime: utils.Now(),
 		speed:    4,
 	}
-}
-
-func (g *Game) IsFinish() bool {
-	return g.isFinish
 }
 
 func (g *Game) Start() {
 	fmt.Println("Game initialing")
 	g.gameInitial()
 	fmt.Println("Game started")
-	for {
-		g.gameLoop()
-		if g.isFinish {
-			break
-		}
-	}
+	g.gameStart()
 	fmt.Println("Game finished")
 }
 
+func (g *Game) gameStart() {
+	done := make(chan bool)
+	go func() {
+		for {
+			g.gameLoop()
+			if g.isFinish {
+				done <- true
+			}
+		}
+	}()
+	<-done
+}
+
 func (g *Game) gameInitial() {
+	var heroes []*constract.IHero
 	for _, data := range repository.GetHeroData() {
-		g.heroes = append(g.heroes, hero.New(data))
+		heroes = append(heroes, hero.New(data))
 	}
+	g.round = NewRound(heroes)
 }
 
 func (g *Game) gameLoop() {
@@ -62,23 +67,13 @@ func (g *Game) gameLoop() {
 }
 
 func (g *Game) gameUpdate(dt float64) {
-	// 多個 hero 進入攻擊視野
-	(*g.heroes[0]).Attack(dt, g.heroes[1:])
+	g.round.round(dt)
 }
 
 func (g *Game) gameRender() {
-	heroes := g.heroes
-	// 輪番檢查死亡狀態
-	for i := len(heroes) - 1; i >= 0; i-- {
-		if (*heroes[i]).IsDie() {
-			heroes = append(heroes[:i], heroes[i+1:]...)
-		}
-	}
 	// 達到結束條件
-	if len(heroes) <= 1 {
+	if g.round.IsDone() {
 		g.isFinish = true
 		return
 	}
-	// 輪到下一個 hero
-	g.heroes = append(heroes[1:], heroes[0])
 }
