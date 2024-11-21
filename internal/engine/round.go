@@ -51,6 +51,9 @@ func (r *Round) attackRound(dt float64, wg *sync.WaitGroup, self *constract.IHer
 			nextInx = 0
 		}
 		target := r.heroes[nextInx]
+		if self == target {
+			return
+		}
 		if !(*target).IsDie() {
 			(*self).Attack(dt, []*constract.IHero{target})
 			break

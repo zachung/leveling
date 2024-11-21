@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const MaxDt = 0.016
+
 type Game struct {
 	isFinish bool
 	round    *Round
@@ -20,7 +22,7 @@ func NewGame() Game {
 	return Game{
 		isFinish: false,
 		lastTime: utils.Now(),
-		speed:    4,
+		speed:    400000,
 	}
 }
 
@@ -39,6 +41,7 @@ func (g *Game) gameStart() {
 			g.gameLoop()
 			if g.isFinish {
 				done <- true
+				return
 			}
 		}
 	}()
@@ -56,24 +59,33 @@ func (g *Game) gameInitial() {
 func (g *Game) gameLoop() {
 	// time
 	now := utils.Now()
+	seconds := now.Sub(g.lastTime).Seconds()
+	dt := seconds * float64(g.speed)
+
 	defer func() {
 		g.lastTime = now
 	}()
 
-	seconds := now.Sub(g.lastTime).Seconds()
-
-	g.gameUpdate(seconds * float64(g.speed))
-	g.gameRender()
+	for {
+		// 達到結束條件
+		if g.round.IsDone() {
+			g.isFinish = true
+			return
+		}
+		var roundDt float64
+		if dt > MaxDt {
+			dt -= MaxDt
+			roundDt = MaxDt
+		} else {
+			roundDt = dt
+		}
+		g.gameUpdate(roundDt)
+		if roundDt == dt {
+			break
+		}
+	}
 }
 
 func (g *Game) gameUpdate(dt float64) {
 	g.round.round(dt)
-}
-
-func (g *Game) gameRender() {
-	// 達到結束條件
-	if g.round.IsDone() {
-		g.isFinish = true
-		return
-	}
 }
