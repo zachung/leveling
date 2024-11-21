@@ -1,6 +1,9 @@
 package engine
 
-import "leveling/internal/constract"
+import (
+	"leveling/internal/constract"
+	"sync"
+)
 
 type Round struct {
 	isDone bool
@@ -15,22 +18,44 @@ func NewRound(heroes []*constract.IHero) *Round {
 }
 
 func (r *Round) round(dt float64) {
-	for i, h := range r.heroes {
-		// FIXME: use goroutine
-		// 選擇攻擊目標
-		var target *constract.IHero
-		for _, otherHero := range append(r.heroes[i+1:], r.heroes[:i]...) {
-			if h != otherHero && !(*otherHero).IsDie() {
-				target = otherHero
-				break
-			}
-		}
-		if target == nil {
-			// 找不到目標，遊戲結束
+	count := len(r.heroes)
+	var wg sync.WaitGroup
+	countSurvived := count
+	defer func() {
+		if countSurvived <= 1 {
 			r.isDone = true
-			return
 		}
-		(*h).Attack(dt, []*constract.IHero{target})
+	}()
+
+	for i, h := range r.heroes {
+		if (*h).IsDie() {
+			countSurvived--
+			continue
+		}
+		wg.Add(1)
+		go r.attackRound(dt, &wg, h, i+1)
+	}
+	wg.Wait()
+}
+
+func (r *Round) attackRound(dt float64, wg *sync.WaitGroup, self *constract.IHero, nextInx int) {
+	defer wg.Done()
+
+	count := len(r.heroes)
+	if (*self).IsDie() {
+		return
+	}
+	// 選擇攻擊目標
+	for {
+		if nextInx == count {
+			nextInx = 0
+		}
+		target := r.heroes[nextInx]
+		if !(*target).IsDie() {
+			(*self).Attack(dt, []*constract.IHero{target})
+			break
+		}
+		nextInx++
 	}
 }
 
