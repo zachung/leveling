@@ -50,8 +50,12 @@ func (hero *Hero) Attack(dt float64, targets []*constract.IHero) {
 func (hero *Hero) ApplyDamage(from *constract.IHero, power int) {
 	attacker := (*from).(*Hero)
 	damage := power + attacker.strength
+	message := fmt.Sprintf("%s(%v) attacked by %s take %v damage", hero.name, hero.health, attacker.name, damage)
 	hero.health -= damage
-	fmt.Printf("[%.9f] %s(%v) attacked by %s take %v damage\n", utils.NowNanoSeconds(), hero.name, hero.health, attacker.name, damage)
+	if hero.IsDie() {
+		message = message + fmt.Sprintf(", %v is Died", hero.name)
+	}
+	fmt.Printf("[%.9f] %s\n", utils.NowNanoSeconds(), message)
 }
 
 func (hero *Hero) IsDie() bool {
