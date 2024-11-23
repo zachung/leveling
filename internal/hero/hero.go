@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"leveling/internal/constract"
 	"leveling/internal/entity"
-	"leveling/internal/utils"
+	"leveling/internal/ui"
 	"leveling/internal/weapons"
 	"math"
 )
@@ -50,12 +50,12 @@ func (hero *Hero) Attack(dt float64, targets []*constract.IHero) {
 func (hero *Hero) ApplyDamage(from *constract.IHero, power int) {
 	attacker := (*from).(*Hero)
 	damage := power + attacker.strength
-	message := fmt.Sprintf("%s(%v) attacked by %s take %v damage", hero.name, hero.health, attacker.name, damage)
+	message := fmt.Sprintf("[red]%s(%v)[white] take [red]%v damage[white] attacked by [::u]%s[::U]", hero.name, hero.health, damage, attacker.name)
 	hero.health -= damage
 	if hero.IsDie() {
 		message = message + fmt.Sprintf(", %v is Died", hero.name)
 	}
-	fmt.Printf("[%.9f] %s\n", utils.NowNanoSeconds(), message)
+	ui.Logger().BattleReport(message)
 }
 
 func (hero *Hero) IsDie() bool {

@@ -1,10 +1,10 @@
 package engine
 
 import (
-	"fmt"
 	"leveling/internal/constract"
 	"leveling/internal/hero"
 	"leveling/internal/repository"
+	"leveling/internal/ui"
 	"leveling/internal/utils"
 	"time"
 )
@@ -16,36 +16,41 @@ type Game struct {
 	round    *Round
 	lastTime time.Time
 	speed    int
+	ui       *ui.UI
+	stopChan chan bool
 }
 
 func NewGame() Game {
-	return Game{
+	game := Game{
 		isFinish: false,
 		lastTime: utils.Now(),
-		speed:    400000,
+		speed:    4,
+		stopChan: make(chan bool),
 	}
+	game.ui = ui.NewUi(&game)
+
+	return game
 }
 
 func (g *Game) Start() {
-	fmt.Println("Game initialing")
+	g.ui.Run()
+	ui.Logger().Info("Game initialing")
 	g.gameInitial()
-	fmt.Println("Game started")
+	ui.Logger().Info("Game started")
 	g.gameStart()
-	fmt.Println("Game finished")
 }
 
 func (g *Game) gameStart() {
-	done := make(chan bool)
 	go func() {
 		for {
 			g.gameLoop()
 			if g.isFinish {
-				done <- true
+				ui.Logger().Info("Game finished")
 				return
 			}
 		}
 	}()
-	<-done
+	<-g.stopChan
 }
 
 func (g *Game) gameInitial() {
@@ -88,4 +93,13 @@ func (g *Game) gameLoop() {
 
 func (g *Game) gameUpdate(dt float64) {
 	g.round.round(dt)
+}
+
+func (g *Game) Stop() {
+	ui.Logger().Info("Stopping the application...")
+	go func() {
+		time.Sleep(time.Second)
+		g.ui.Stop()
+		g.stopChan <- true
+	}()
 }
