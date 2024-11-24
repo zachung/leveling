@@ -20,16 +20,17 @@ type Game struct {
 	stopChan chan bool
 }
 
-func NewGame() Game {
-	game := Game{
+func NewGame() *constract.Game {
+	game := &Game{
 		isFinish: false,
 		lastTime: utils.Now(),
 		speed:    4,
 		stopChan: make(chan bool),
 	}
-	game.ui = ui.NewUi(&game)
+	igame := constract.Game(game)
+	game.ui = ui.NewUi(&igame)
 
-	return game
+	return &igame
 }
 
 func (g *Game) Start() {
@@ -102,4 +103,10 @@ func (g *Game) Stop() {
 		g.ui.Stop()
 		g.stopChan <- true
 	}()
+}
+
+func (g *Game) UI() *constract.UI {
+	uii := constract.UI(g.ui)
+
+	return &uii
 }

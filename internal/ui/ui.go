@@ -4,44 +4,53 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"leveling/internal/constract"
+	"leveling/internal/ui/keys"
 )
 
 type UI struct {
-	app *tview.Application
+	app  *tview.Application
+	game *constract.Game
 }
 
-var console *Console
-
-func NewUi(game constract.Game) *UI {
+func NewUi(game *constract.Game) *UI {
 	app := tview.NewApplication()
-	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyCtrlC {
-			game.Stop()
+
+	newPrimitive := func(text string) tview.Primitive {
+		return tview.NewTextView().
+			SetTextAlign(tview.AlignCenter).
+			SetText(text)
+	}
+	sideView := sidebar()
+	reportView := battleReport(app)
+
+	grid := tview.NewGrid().
+		SetRows(-2, 0).
+		SetColumns(-3, 0).
+		SetBorders(true).
+		AddItem(newPrimitive("Header"), 0, 0, 1, 1, 0, 0, false).
+		AddItem(sideView, 0, 1, 2, 1, 0, 0, false).
+		AddItem(reportView, 1, 0, 1, 1, 0, 0, false)
+
+	app.SetRoot(grid, true).SetFocus(sideView)
+
+	return &UI{app, game}
+}
+
+func (ui *UI) keyBinding() {
+	ui.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		// chain of responsibility
+		keyHandlers := keys.NewCtrlC(keys.NewRune(nil))
+
+		if keyHandlers.Execute(ui.game, event) == nil {
 			return nil
 		}
 		return event
 	})
-
-	textView := tview.NewTextView().
-		SetDynamicColors(true)
-	textView.SetChangedFunc(func() {
-		app.Draw()
-		textView.ScrollToEnd()
-	})
-	textView.SetDoneFunc(func(key tcell.Key) {
-		if key == tcell.KeyEnter {
-			app.Stop()
-		}
-	})
-	textView.SetBorder(true)
-
-	app.SetRoot(textView, true).SetFocus(textView)
-	console = NewConsole(textView)
-
-	return &UI{app}
 }
 
 func (ui *UI) Run() *UI {
+	ui.keyBinding()
+
 	go func() {
 		if err := ui.app.Run(); err != nil {
 			panic(err)
@@ -55,6 +64,16 @@ func (ui *UI) Stop() {
 	ui.app.Stop()
 }
 
-func Logger() *Console {
+func (ui *UI) Logger() *constract.Console {
 	return console
+}
+
+func (ui *UI) SideLogger() *constract.Console {
+	return keyConsole
+}
+
+func Logger() *Console {
+	c := (*console).(*Console)
+
+	return c
 }
