@@ -1,11 +1,14 @@
 package engine
 
 import (
+	"io"
 	"leveling/internal/constract"
 	"leveling/internal/hero"
 	"leveling/internal/repository"
-	"leveling/internal/ui"
 	"leveling/internal/utils"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -16,7 +19,7 @@ type Game struct {
 	round    *Round
 	lastTime time.Time
 	speed    int
-	ui       *ui.UI
+	console  *io.Writer
 	stopChan chan bool
 }
 
@@ -27,26 +30,34 @@ func NewGame() *constract.Game {
 		lastTime: utils.Now(),
 		speed:    4,
 		stopChan: make(chan bool),
-		ui:       ui.NewUi(&game),
 	}
 
 	return &game
 }
 
 func (g *Game) Start() {
-	g.ui.Run()
-	ui.Logger().Info("Game initialing")
+	g.write("Game initialing\n")
 	g.gameInitial()
-	ui.Logger().Info("Game started")
+	g.write("Game started\n")
 	g.gameStart()
 }
 
 func (g *Game) gameStart() {
+	// handle sigint
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		g.Stop()
+		os.Exit(1)
+	}()
+
+	// start game loop
 	go func() {
 		for {
 			g.gameLoop()
 			if g.isFinish {
-				ui.Logger().Info("Game finished")
+				g.write("Game finished\n")
 				return
 			}
 		}
@@ -97,16 +108,17 @@ func (g *Game) gameUpdate(dt float64) {
 }
 
 func (g *Game) Stop() {
-	ui.Logger().Info("Stopping the application...")
+	g.write("Stopping the application...\n")
 	go func() {
 		time.Sleep(time.Second)
-		g.ui.Stop()
 		g.stopChan <- true
 	}()
 }
 
-func (g *Game) UI() *constract.UI {
-	uii := constract.UI(g.ui)
+func (g *Game) SetConsole(writer *io.Writer) {
+	g.console = writer
+}
 
-	return &uii
+func (g *Game) write(message string) {
+	(*g.console).Write([]byte(message))
 }

@@ -1,9 +1,11 @@
 package constract
 
+import "io"
+
 type Game interface {
 	Start()
 	Stop()
-	UI() *UI
+	SetConsole(writer *io.Writer)
 }
 
 type Console interface {

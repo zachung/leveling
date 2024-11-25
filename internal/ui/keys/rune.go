@@ -1,7 +1,6 @@
 package keys
 
 import (
-	"fmt"
 	"github.com/gdamore/tcell/v2"
 	"leveling/internal/constract"
 )
@@ -20,7 +19,8 @@ func NewRune(next Func) *Rune {
 
 func (c Rune) handleEvent(game *constract.Game, event *tcell.EventKey) *tcell.EventKey {
 	if event.Key() == tcell.KeyRune {
-		(*(*(*game).UI()).SideLogger()).Info(fmt.Sprintf("type in %v", string(event.Rune())))
+		// TODO: the control message for client
+		//(*(*(*game).UI()).SideLogger()).Info(fmt.Sprintf("type in %v", string(event.Rune())))
 		return nil
 	}
 	return event

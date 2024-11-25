@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"leveling/internal/constract"
 	"leveling/internal/entity"
-	"leveling/internal/ui"
 	"leveling/internal/weapons"
 	"math"
 )
@@ -55,7 +54,8 @@ func (hero *Hero) ApplyDamage(from *constract.IHero, power int) {
 	if hero.IsDie() {
 		message = message + fmt.Sprintf(", %v is Died", hero.name)
 	}
-	ui.Logger().BattleReport(message)
+	// TODO: send message to client
+	//ui.Logger().BattleReport(message)
 }
 
 func (hero *Hero) IsDie() bool {

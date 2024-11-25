@@ -1,8 +1,14 @@
 package main
 
-import "leveling/internal/engine"
+import (
+	"io"
+	"leveling/internal/engine"
+	"os"
+)
 
 func main() {
-	game := engine.NewGame()
-	(*game).Start()
+	game := (*engine.NewGame())
+	stdout := io.Writer(os.Stdout)
+	game.SetConsole(&stdout)
+	game.Start()
 }
