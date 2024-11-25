@@ -5,25 +5,22 @@ import (
 	"leveling/internal/constract"
 )
 
-type Func interface {
-	Execute(game *constract.Game, event *tcell.EventKey) *tcell.EventKey
-}
-
 type CtrlC struct {
-	next Func
+	*T
 }
 
 func NewCtrlC(next Func) *CtrlC {
-	return &CtrlC{next}
+	t := &T{next: next}
+	i := &CtrlC{T: t}
+	t.Func = i
+
+	return i
 }
 
-func (c *CtrlC) Execute(game *constract.Game, event *tcell.EventKey) *tcell.EventKey {
+func (c CtrlC) handleEvent(game *constract.Game, event *tcell.EventKey) *tcell.EventKey {
 	if event.Key() == tcell.KeyCtrlC {
 		(*game).Stop()
 		return nil
-	}
-	if c.next != nil {
-		return c.next.Execute(game, event)
 	}
 	return event
 }

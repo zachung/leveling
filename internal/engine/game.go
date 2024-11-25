@@ -21,16 +21,16 @@ type Game struct {
 }
 
 func NewGame() *constract.Game {
-	game := &Game{
+	var game constract.Game
+	game = &Game{
 		isFinish: false,
 		lastTime: utils.Now(),
 		speed:    4,
 		stopChan: make(chan bool),
+		ui:       ui.NewUi(&game),
 	}
-	igame := constract.Game(game)
-	game.ui = ui.NewUi(&igame)
 
-	return &igame
+	return &game
 }
 
 func (g *Game) Start() {

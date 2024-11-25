@@ -15,23 +15,17 @@ type UI struct {
 func NewUi(game *constract.Game) *UI {
 	app := tview.NewApplication()
 
-	newPrimitive := func(text string) tview.Primitive {
-		return tview.NewTextView().
-			SetTextAlign(tview.AlignCenter).
-			SetText(text)
-	}
 	sideView := sidebar()
 	reportView := battleReport(app)
 
 	grid := tview.NewGrid().
-		SetRows(-2, 0).
+		SetRows(0).
 		SetColumns(-3, 0).
 		SetBorders(true).
-		AddItem(newPrimitive("Header"), 0, 0, 1, 1, 0, 0, false).
-		AddItem(sideView, 0, 1, 2, 1, 0, 0, false).
-		AddItem(reportView, 1, 0, 1, 1, 0, 0, false)
+		AddItem(sideView, 0, 1, 1, 1, 0, 0, false).
+		AddItem(reportView, 0, 0, 1, 1, 0, 0, false)
 
-	app.SetRoot(grid, true).SetFocus(sideView)
+	app.SetRoot(grid, true).SetFocus(reportView)
 
 	return &UI{app, game}
 }
@@ -41,7 +35,7 @@ func (ui *UI) keyBinding() {
 		// chain of responsibility
 		keyHandlers := keys.NewCtrlC(keys.NewRune(nil))
 
-		if keyHandlers.Execute(ui.game, event) == nil {
+		if (*keyHandlers).Execute(ui.game, event) == nil {
 			return nil
 		}
 		return event
