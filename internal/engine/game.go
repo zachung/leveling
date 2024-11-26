@@ -1,9 +1,11 @@
 package engine
 
 import (
+	"fmt"
 	"io"
 	"leveling/internal/constract"
 	"leveling/internal/hero"
+	"leveling/internal/message"
 	"leveling/internal/repository"
 	"leveling/internal/utils"
 	"os"
@@ -62,6 +64,14 @@ func (g *Game) gameStart() {
 			}
 		}
 	}()
+
+	// listen for client
+	go func() {
+		g.write("Listening for client\n")
+		game := constract.Game(g)
+		message.NewMessenger(&game)
+	}()
+
 	<-g.stopChan
 }
 
@@ -121,4 +131,8 @@ func (g *Game) SetConsole(writer *io.Writer) {
 
 func (g *Game) write(message string) {
 	(*g.console).Write([]byte(message))
+}
+
+func (g *Game) Log(format string, args ...any) {
+	(*g.console).Write([]byte(fmt.Sprintf(format, args...)))
 }
