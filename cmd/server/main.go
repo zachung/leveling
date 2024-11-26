@@ -7,8 +7,8 @@ import (
 )
 
 func main() {
-	game := (*engine.NewGame())
+	server := (*engine.NewServer())
 	stdout := io.Writer(os.Stdout)
-	game.SetConsole(&stdout)
-	game.Start()
+	server.SetConsole(&stdout)
+	server.Start()
 }

@@ -2,7 +2,7 @@ package constract
 
 import "io"
 
-type Game interface {
+type Server interface {
 	Start()
 	Stop()
 	SetConsole(writer *io.Writer)

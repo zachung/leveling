@@ -8,11 +8,11 @@ import (
 )
 
 type UI struct {
-	app  *tview.Application
-	game *constract.Game
+	app    *tview.Application
+	server *constract.Server
 }
 
-func NewUi(game *constract.Game) *UI {
+func NewUi(server *constract.Server) *UI {
 	app := tview.NewApplication()
 
 	sideView := sidebar()
@@ -27,7 +27,7 @@ func NewUi(game *constract.Game) *UI {
 
 	app.SetRoot(grid, true).SetFocus(reportView)
 
-	return &UI{app, game}
+	return &UI{app, server}
 }
 
 func (ui *UI) keyBinding() {
@@ -35,7 +35,7 @@ func (ui *UI) keyBinding() {
 		// chain of responsibility
 		keyHandlers := keys.NewCtrlC(keys.NewRune(nil))
 
-		if (*keyHandlers).Execute(ui.game, event) == nil {
+		if (*keyHandlers).Execute(ui.server, event) == nil {
 			return nil
 		}
 		return event

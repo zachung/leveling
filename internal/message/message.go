@@ -12,17 +12,17 @@ type Message struct {
 
 var upgrader = websocket.Upgrader{} // use default options
 
-func NewMessenger(game *constract.Game) {
-	http.HandleFunc("/socket", newSocketHandler(game))
+func NewMessenger(server *constract.Server) {
+	http.HandleFunc("/socket", newSocketHandler(server))
 	http.ListenAndServe("localhost:8080", nil)
 }
 
-func newSocketHandler(game *constract.Game) func(w http.ResponseWriter, r *http.Request) {
+func newSocketHandler(server *constract.Server) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Upgrade our raw HTTP connection to a websocket based one
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			(*game).Log("Error during connection upgradation:%v\n", err)
+			(*server).Log("Error during connection upgradation:%v\n", err)
 			return
 		}
 		defer conn.Close()
@@ -31,13 +31,13 @@ func newSocketHandler(game *constract.Game) func(w http.ResponseWriter, r *http.
 		for {
 			messageType, message, err := conn.ReadMessage()
 			if err != nil {
-				(*game).Log("Error during message reading:%v\n", err)
+				(*server).Log("Error during message reading:%v\n", err)
 				break
 			}
-			(*game).Log("Received: %s\n", message)
+			(*server).Log("Received: %s\n", message)
 			err = conn.WriteMessage(messageType, message)
 			if err != nil {
-				(*game).Log("Error during message writing:%v\n", err)
+				(*server).Log("Error during message writing:%v\n", err)
 				break
 			}
 		}

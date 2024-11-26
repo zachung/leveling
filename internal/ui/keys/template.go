@@ -6,8 +6,8 @@ import (
 )
 
 type Func interface {
-	Execute(game *constract.Game, event *tcell.EventKey) *tcell.EventKey
-	handleEvent(game *constract.Game, event *tcell.EventKey) *tcell.EventKey
+	Execute(server *constract.Server, event *tcell.EventKey) *tcell.EventKey
+	handleEvent(server *constract.Server, event *tcell.EventKey) *tcell.EventKey
 }
 
 type T struct {
@@ -15,12 +15,12 @@ type T struct {
 	next Func
 }
 
-func (t *T) Execute(game *constract.Game, event *tcell.EventKey) *tcell.EventKey {
-	if t.handleEvent(game, event) == nil {
+func (t *T) Execute(server *constract.Server, event *tcell.EventKey) *tcell.EventKey {
+	if t.handleEvent(server, event) == nil {
 		return nil
 	}
 	if t.next != nil {
-		return t.next.Execute(game, event)
+		return t.next.Execute(server, event)
 	}
 	return event
 }
