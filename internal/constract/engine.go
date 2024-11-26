@@ -16,4 +16,10 @@ type Console interface {
 type UI interface {
 	Logger() *Console
 	SideLogger() *Console
+	SetController(controller *Controller)
+}
+
+type Controller interface {
+	Escape()
+	Send(message string)
 }

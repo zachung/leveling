@@ -3,16 +3,16 @@ package ui
 import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+	keys2 "leveling/internal/client/ui/keys"
 	"leveling/internal/constract"
-	"leveling/internal/ui/keys"
 )
 
 type UI struct {
-	app    *tview.Application
-	server *constract.Server
+	app        *tview.Application
+	controller *constract.Controller
 }
 
-func NewUi(server *constract.Server) *UI {
+func NewUi() *UI {
 	app := tview.NewApplication()
 
 	sideView := sidebar()
@@ -27,15 +27,15 @@ func NewUi(server *constract.Server) *UI {
 
 	app.SetRoot(grid, true).SetFocus(reportView)
 
-	return &UI{app, server}
+	return &UI{app: app}
 }
 
 func (ui *UI) keyBinding() {
 	ui.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		// chain of responsibility
-		keyHandlers := keys.NewCtrlC(keys.NewRune(nil))
+		keyHandlers := keys2.NewCtrlC(keys2.NewRune(nil))
 
-		if (*keyHandlers).Execute(ui.server, event) == nil {
+		if (*keyHandlers).Execute(ui.controller, event) == nil {
 			return nil
 		}
 		return event
@@ -58,16 +58,14 @@ func (ui *UI) Stop() {
 	ui.app.Stop()
 }
 
+func (ui *UI) SetController(controller *constract.Controller) {
+	ui.controller = controller
+}
+
 func (ui *UI) Logger() *constract.Console {
 	return console
 }
 
 func (ui *UI) SideLogger() *constract.Console {
 	return keyConsole
-}
-
-func Logger() *Console {
-	c := (*console).(*Console)
-
-	return c
 }

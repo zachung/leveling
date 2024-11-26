@@ -17,9 +17,9 @@ func NewCtrlC(next Func) *CtrlC {
 	return i
 }
 
-func (c CtrlC) handleEvent(server *constract.Server, event *tcell.EventKey) *tcell.EventKey {
+func (c CtrlC) handleEvent(controller *constract.Controller, event *tcell.EventKey) *tcell.EventKey {
 	if event.Key() == tcell.KeyCtrlC {
-		(*server).Stop()
+		(*controller).Escape()
 		return nil
 	}
 	return event
