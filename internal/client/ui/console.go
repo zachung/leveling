@@ -17,8 +17,8 @@ func NewConsole(writer *tview.TextView) *constract.Console {
 	return &console
 }
 
-func (c Console) Info(msg string) {
-	fmt.Fprintln(c.writer, msg)
+func (c Console) Info(msg string, args ...any) {
+	fmt.Fprintf(c.writer, msg, args...)
 }
 
 func (c Console) BattleReport(msg string) {

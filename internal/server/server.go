@@ -1,12 +1,12 @@
-package engine
+package server
 
 import (
 	"fmt"
 	"io"
 	"leveling/internal/constract"
 	"leveling/internal/hero"
-	"leveling/internal/message"
 	"leveling/internal/repository"
+	"leveling/internal/server/message"
 	"leveling/internal/utils"
 	"os"
 	"os/signal"

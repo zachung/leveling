@@ -2,31 +2,37 @@ package message
 
 import (
 	"github.com/gorilla/websocket"
-	"log"
+	"leveling/internal/client/ui"
+	"leveling/internal/constract"
 	"time"
 )
 
 type Connection struct {
-	conn *websocket.Conn
+	console *constract.Console
+	conn    *websocket.Conn
 }
 
 var done chan interface{}
 
-func NewConnection() *Connection {
-	conn := connect()
-	go receiveHandler(conn)
+func NewConnection(console *constract.Console) *constract.Connection {
+	c := &Connection{console: console}
+	connection := constract.Connection(c)
 
-	return &Connection{conn}
+	return &connection
 }
 
-func connect() *websocket.Conn {
+func (c *Connection) Connect() bool {
 	socketUrl := "ws://localhost:8080" + "/socket"
 	conn, _, err := websocket.DefaultDialer.Dial(socketUrl, nil)
 	if err != nil {
-		log.Fatal("Error connecting to Websocket Server:", err)
+		ui.Logger().Info("Error connecting to Websocket Server:%v\n", err)
+		return false
 	}
+	c.conn = conn
+	done = make(chan interface{})
+	go receiveHandler(conn)
 
-	return conn
+	return true
 }
 
 func receiveHandler(connection *websocket.Conn) {
@@ -34,33 +40,40 @@ func receiveHandler(connection *websocket.Conn) {
 	for {
 		_, msg, err := connection.ReadMessage()
 		if err != nil {
-			log.Println("Error in receive:", err)
+			ui.Logger().Info("Error in receive:%v\n", err)
 			return
 		}
-		log.Printf("Received: %s\n", msg)
+		ui.Logger().Info("Received: %s\n", msg)
 	}
 }
 
 func (c *Connection) Close() {
+	if c.conn == nil {
+		return
+	}
 	defer c.conn.Close()
 
 	// Terminate gracefully...
-	log.Println("Received SIGINT interrupt signal. Closing all pending connections")
+	ui.Logger().Info("Closing all pending connections\n")
 
 	// Close our websocket connection
 	err := c.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 	if err != nil {
-		log.Println("Error during closing websocket:", err)
+		ui.Logger().Info("Error during closing websocket:%v\n", err)
 		return
 	}
 
 	select {
 	case <-done:
-		log.Println("Receiver Channel Closed! Exiting....")
+		ui.Logger().Info("Receiver Channel Closed! Exiting....\n")
 	case <-time.After(time.Duration(1) * time.Second):
-		log.Println("Timeout in closing receiving channel. Exiting....")
+		ui.Logger().Info("Timeout in closing receiving channel. Exiting....\n")
 	}
 	return
+}
+
+func (c *Connection) SendMessage(message string) {
+	c.conn.WriteMessage(websocket.TextMessage, []byte(message))
 }
 
 func (c *Connection) StartTest() {
@@ -72,13 +85,9 @@ func (c *Connection) StartTest() {
 			// Send an echo packet every second
 			err := c.conn.WriteMessage(websocket.TextMessage, []byte("Hello from GolangDocs!"))
 			if err != nil {
-				log.Println("Error during writing to websocket:", err)
+				ui.Logger().Info("Error during writing to websocket:%v\n", err)
 				return
 			}
 		}
 	}
-}
-
-func (c Connection) SendMessage(message string) {
-	c.conn.WriteMessage(websocket.TextMessage, []byte(message))
 }

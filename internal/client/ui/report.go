@@ -8,8 +8,11 @@ import (
 var console *constract.Console
 
 func battleReport(app *tview.Application) tview.Primitive {
-	textView := tview.NewTextView().
-		SetDynamicColors(true)
+	textView := tview.NewTextView()
+	textView.SetTitle("Report").
+		SetTitleAlign(tview.AlignLeft).
+		SetBorder(true)
+	textView.SetDynamicColors(true)
 	textView.SetChangedFunc(func() {
 		app.Draw()
 		textView.ScrollToEnd()

@@ -20,7 +20,6 @@ func NewRune(next Func) *Rune {
 
 func (c Rune) handleEvent(controller *constract.Controller, event *tcell.EventKey) *tcell.EventKey {
 	if event.Key() == tcell.KeyRune {
-		// TODO: the control message for client
 		(*controller).Send(fmt.Sprintf("type in %v", string(event.Rune())))
 		return nil
 	}

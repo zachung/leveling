@@ -2,12 +2,12 @@ package main
 
 import (
 	"io"
-	"leveling/internal/engine"
+	"leveling/internal/server"
 	"os"
 )
 
 func main() {
-	server := (*engine.NewServer())
+	server := (*server.NewServer())
 	stdout := io.Writer(os.Stdout)
 	server.SetConsole(&stdout)
 	server.Start()

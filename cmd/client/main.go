@@ -1,20 +1,16 @@
 package main
 
 import (
+	"leveling/internal/client/message"
 	"leveling/internal/client/ui"
-	"time"
+	"leveling/internal/constract"
 )
 
 func main() {
-	c := make(chan bool)
 	newUi := ui.NewUi()
+	connection := message.NewConnection(newUi.Logger())
+	u := constract.UI(newUi)
+	controller := ui.NewController(&u, connection)
+	newUi.SetController(controller)
 	newUi.Run()
-	newUi.SetController(ui.NewController())
-	go func() {
-		for {
-			time.Sleep(1 * time.Second)
-		}
-	}()
-	<-c
-	//message.Connect()
 }

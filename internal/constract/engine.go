@@ -1,6 +1,9 @@
 package constract
 
-import "io"
+import (
+	"github.com/gdamore/tcell/v2"
+	"io"
+)
 
 type Server interface {
 	Start()
@@ -10,16 +13,26 @@ type Server interface {
 }
 
 type Console interface {
-	Info(msg string)
+	Info(msg string, args ...any)
 }
 
 type UI interface {
 	Logger() *Console
 	SideLogger() *Console
 	SetController(controller *Controller)
+	SetKeyBinding(keyBinding func(event *tcell.EventKey) *tcell.EventKey)
+	Stop()
 }
 
 type Controller interface {
+	Connect()
+	GetKeyBinding() func(event *tcell.EventKey) *tcell.EventKey
 	Escape()
 	Send(message string)
+}
+
+type Connection interface {
+	Connect() bool
+	Close()
+	SendMessage(message string)
 }
