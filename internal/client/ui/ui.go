@@ -2,9 +2,9 @@ package ui
 
 import (
 	"github.com/rivo/tview"
+	"leveling/internal/client/constract"
 	"leveling/internal/client/message"
 	"leveling/internal/client/service"
-	"leveling/internal/constract"
 )
 
 type UI struct {

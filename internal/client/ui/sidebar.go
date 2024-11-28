@@ -2,7 +2,7 @@ package ui
 
 import (
 	"github.com/rivo/tview"
-	"leveling/internal/constract"
+	"leveling/internal/client/constract"
 )
 
 var keyConsole *constract.Console

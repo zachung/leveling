@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"leveling/internal/entity"
 	"leveling/internal/server/constract"
+	"leveling/internal/server/service"
 	"leveling/internal/weapons"
 	"math"
 )
@@ -49,13 +50,13 @@ func (hero *Hero) Attack(dt float64, targets []*constract.IHero) {
 func (hero *Hero) ApplyDamage(from *constract.IHero, power int) {
 	attacker := (*from).(*Hero)
 	damage := power + attacker.strength
-	message := fmt.Sprintf("[red]%s(%v)[white] take [red]%v damage[white] attacked by [::u]%s[::U]", hero.name, hero.health, damage, attacker.name)
+	message := fmt.Sprintf("%s(%v) take %v damage attacked by %s", hero.name, hero.health, damage, attacker.name)
 	hero.health -= damage
 	if hero.IsDie() {
 		message = message + fmt.Sprintf(", %v is Died", hero.name)
 	}
 	// TODO: send message to client
-	//ui.Logger().BattleReport(message)
+	service.Logger().Info("%v\n", message)
 }
 
 func (hero *Hero) IsDie() bool {

@@ -30,7 +30,7 @@ func NewServer() *constract.Server {
 	server = &Server{
 		isFinish: false,
 		lastTime: utils.Now(),
-		speed:    4,
+		speed:    1,
 		stopChan: make(chan bool),
 	}
 

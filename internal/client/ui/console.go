@@ -3,7 +3,7 @@ package ui
 import (
 	"fmt"
 	"github.com/rivo/tview"
-	"leveling/internal/constract"
+	"leveling/internal/client/constract"
 	"leveling/internal/utils"
 )
 

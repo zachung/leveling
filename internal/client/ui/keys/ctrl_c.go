@@ -2,7 +2,7 @@ package keys
 
 import (
 	"github.com/gdamore/tcell/v2"
-	"leveling/internal/constract"
+	"leveling/internal/client/constract"
 )
 
 type CtrlC struct {

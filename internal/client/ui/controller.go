@@ -2,9 +2,9 @@ package ui
 
 import (
 	"github.com/gdamore/tcell/v2"
+	"leveling/internal/client/constract"
 	"leveling/internal/client/service"
 	"leveling/internal/client/ui/keys"
-	"leveling/internal/constract"
 	"time"
 )
 

@@ -1,6 +1,8 @@
 package service
 
-import "leveling/internal/constract"
+import (
+	"leveling/internal/client/constract"
+)
 
 type Locator struct {
 	console    *constract.Console

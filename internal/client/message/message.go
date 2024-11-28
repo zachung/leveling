@@ -2,8 +2,8 @@ package message
 
 import (
 	"github.com/gorilla/websocket"
+	"leveling/internal/client/constract"
 	"leveling/internal/client/service"
-	"leveling/internal/constract"
 	"time"
 )
 

@@ -3,7 +3,7 @@ package keys
 import (
 	"fmt"
 	"github.com/gdamore/tcell/v2"
-	"leveling/internal/constract"
+	"leveling/internal/client/constract"
 )
 
 type Rune struct {
