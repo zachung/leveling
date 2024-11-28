@@ -11,7 +11,7 @@ type Console interface {
 type UI interface {
 	Logger() *Console
 	SideLogger() *Console
-	Run()
+	Run(name string)
 	Stop()
 }
 

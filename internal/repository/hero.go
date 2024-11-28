@@ -5,12 +5,16 @@ import (
 	"leveling/internal/entity"
 )
 
+var enemiesJsonData = map[string]string{}
+
+var heroJsonData = map[string]string{
+	"Taras": `{"name": "Taras", "Health": 100, "Strength": 8, "mainHand": 2}`,
+	"Sin":   `{"name": "Sin", "Health": 100, "Strength": 2, "mainHand": 1}`,
+	"Brian": `{"name": "Brian", "Health": 100, "Strength": 6, "mainHand": 0}`,
+}
+
 func GetHeroData() (heroesEntity []entity.Hero) {
-	heroJsonData := []string{
-		`{"name": "Taras", "Health": 100, "Strength": 8, "mainHand": 2}`,
-		`{"name": "Sin", "Health": 100, "Strength": 2, "mainHand": 1}`,
-	}
-	for _, jsonDatum := range heroJsonData {
+	for _, jsonDatum := range enemiesJsonData {
 		data := entity.Hero{}
 		err := json.Unmarshal([]byte(jsonDatum), &data)
 		if err != nil {
@@ -22,9 +26,8 @@ func GetHeroData() (heroesEntity []entity.Hero) {
 }
 
 func GetHeroByName(name string) (heroEntity entity.Hero) {
-	jsonDatum := `{"name": "Brian", "Health": 100, "Strength": 6, "mainHand": 0}`
 	data := entity.Hero{}
-	json.Unmarshal([]byte(jsonDatum), &data)
+	json.Unmarshal([]byte(heroJsonData[name]), &data)
 
 	return data
 }

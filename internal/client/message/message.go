@@ -10,21 +10,23 @@ import (
 
 type Connector struct {
 	conn *websocket.Conn
+	name string
 }
 
 var done chan interface{}
 
-func NewConnection() *contract.Connector {
-	c := &Connector{}
+func NewConnection(name string) *contract.Connector {
+	c := &Connector{name: name}
 	connector := contract.Connector(c)
 
 	return &connector
 }
 
 func (c *Connector) Connect() bool {
+	service.Logger().Info("%s connecting...\n", c.name)
 	socketUrl := "ws://localhost:8080" + "/socket"
 	header := http.Header{}
-	header.Add("Authorization", "Brian")
+	header.Add("Authorization", c.name)
 	conn, _, err := websocket.DefaultDialer.Dial(socketUrl, header)
 	if err != nil {
 		service.Logger().Info("Error connecting to Websocket Server:%v\n", err)

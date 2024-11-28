@@ -74,6 +74,7 @@ func (r *Round) AddHero(client *contract.Client, hero *contract.IHero) {
 	c := (*client).(*message.Client)
 	r.keys[c] = len(r.heroes)
 	r.heroes = append(r.heroes, hero)
+	service.Logger().Info("hero %d added\n", r.keys[c])
 }
 
 func (r *Round) RemoveHero(client *contract.Client) {

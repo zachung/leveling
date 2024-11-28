@@ -45,10 +45,16 @@ func (hero *Hero) Attack(dt float64, targets []*contract.IHero) {
 		return
 	}
 	roundTime := hero.roundCooldown
-	for rounds := int64(roundTime / ROUNT_TIME_SECOND); rounds > 0; rounds-- {
-		weapon.Attack(targets[0])
+	if hero.nextAction == nil {
+		// 下次可以直接動作
+		hero.roundCooldown = ROUNT_TIME_SECOND
+	} else {
+		for rounds := int64(roundTime / ROUNT_TIME_SECOND); rounds > 0; rounds-- {
+			weapon.Attack(targets[0])
+		}
+		hero.nextAction = nil
+		hero.roundCooldown = math.Mod(roundTime, ROUNT_TIME_SECOND)
 	}
-	hero.roundCooldown = math.Mod(roundTime, ROUNT_TIME_SECOND)
 }
 
 func (hero *Hero) ApplyDamage(from *contract.IHero, power int) {
@@ -57,21 +63,34 @@ func (hero *Hero) ApplyDamage(from *contract.IHero, power int) {
 	health := hero.health
 	hero.health -= damage
 	// send message to client
+	messageEvent(hero, health, damage, attacker)
+}
+
+func messageEvent(hero *Hero, health int, damage int, attacker *Hero) {
 	// TODO: message type for show
 	// TODO: event queue
+	var message string
+	// display for applied
+	message = fmt.Sprintf("[red]-%v health[white] from [::u]%s[::U], remain %v", damage, attacker.name, health)
 	if hero.client != nil {
-		message := fmt.Sprintf("[red]%s(%v)[white] take [red]%v damage[white] attacked by [::u]%s[::U]", hero.name, health, damage, attacker.name)
-		if hero.IsDie() {
-			message = message + fmt.Sprintf(", %v is Died", hero.name)
-		}
 		client := *hero.client
 		client.Send([]byte(message))
-	} else {
-		message := fmt.Sprintf("%s(%v) take %v damage attacked by %s", hero.name, health, damage, attacker.name)
 		if hero.IsDie() {
-			message = message + fmt.Sprintf(", %v is Died", hero.name)
+			client.Send([]byte("You Died"))
 		}
-		service.Logger().Debug("%v\n", message)
+	} else {
+		service.Logger().Debug(message)
+	}
+	// display for attacker
+	message = fmt.Sprintf("attack [red]%s(%v)[white] make [red]%v[white] damage", hero.name, health, damage)
+	if attacker.client != nil {
+		client := *attacker.client
+		client.Send([]byte(message))
+		if hero.IsDie() {
+			client.Send([]byte(fmt.Sprintf("%v is Died", hero.name)))
+		}
+	} else {
+		service.Logger().Debug(message)
 	}
 }
 
@@ -81,5 +100,5 @@ func (hero *Hero) IsDie() bool {
 
 func (hero *Hero) SetNextAction(action *contract2.Action) {
 	hero.nextAction = action
-	service.Logger().Info("%s %v\n", hero.name, string(action.Serialize()))
+	service.Logger().Debug("%s %v\n", hero.name, string(action.Serialize()))
 }
