@@ -74,8 +74,8 @@ func (c *Connector) Close() {
 	return
 }
 
-func (c *Connector) SendMessage(message string) {
-	c.conn.WriteMessage(websocket.TextMessage, []byte(message))
+func (c *Connector) SendMessage(message []byte) {
+	c.conn.WriteMessage(websocket.TextMessage, message)
 }
 
 func (c *Connector) StartTest() {

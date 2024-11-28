@@ -2,6 +2,7 @@ package server
 
 import (
 	"leveling/internal/server/contract"
+	"leveling/internal/server/message"
 	"leveling/internal/server/service"
 	"sync"
 )
@@ -9,21 +10,19 @@ import (
 type Round struct {
 	isDone bool
 	heroes []*contract.IHero
-	keys   map[*contract.Client]int
+	keys   map[*message.Client]int
 	events chan func()
 }
 
 func NewRound(heroes []*contract.IHero) *Round {
 	return &Round{
 		heroes: heroes,
-		keys:   make(map[*contract.Client]int),
+		keys:   make(map[*message.Client]int),
+		events: make(chan func()),
 	}
 }
 
 func (r *Round) round(dt float64) {
-	r.events = make(chan func())
-	done := make(chan int)
-
 	count := len(r.heroes)
 	var wg sync.WaitGroup
 	countSurvived := count
@@ -37,17 +36,14 @@ func (r *Round) round(dt float64) {
 	}
 	wg.Wait()
 
-	go func() {
-		for {
-			select {
-			case event := <-r.events:
-				event()
-			case <-done:
-				return
-			}
+	for {
+		select {
+		case event := <-r.events:
+			event()
+		default:
+			return
 		}
-	}()
-	done <- 0
+	}
 }
 
 func (r *Round) attackRound(dt float64, wg *sync.WaitGroup, self *contract.IHero, nextInx int) {
@@ -75,14 +71,18 @@ func (r *Round) attackRound(dt float64, wg *sync.WaitGroup, self *contract.IHero
 }
 
 func (r *Round) AddHero(client *contract.Client, hero *contract.IHero) {
-	r.keys[client] = len(r.heroes)
+	c := (*client).(*message.Client)
+	r.keys[c] = len(r.heroes)
 	r.heroes = append(r.heroes, hero)
 }
 
 func (r *Round) RemoveHero(client *contract.Client) {
-	r.events <- func() {
-		i := r.keys[client]
-		r.heroes = append(r.heroes[:i], r.heroes[i+1:]...)
-		service.Logger().Info("hero leaved\n")
-	}
+	c := (*client).(*message.Client)
+	go func() {
+		r.events <- func() {
+			i := r.keys[c]
+			r.heroes = append(r.heroes[:i], r.heroes[i+1:]...)
+			service.Logger().Info("hero %d leaved\n", i)
+		}
+	}()
 }

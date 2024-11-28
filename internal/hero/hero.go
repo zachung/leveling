@@ -2,8 +2,10 @@ package hero
 
 import (
 	"fmt"
+	contract2 "leveling/internal/contract"
 	"leveling/internal/entity"
 	"leveling/internal/server/contract"
+	"leveling/internal/server/service"
 	"leveling/internal/weapons"
 	"math"
 )
@@ -17,6 +19,7 @@ type Hero struct {
 	mainHand      *contract.IWeapon
 	roundCooldown float64 // weapon auto attack cooldown
 	client        *contract.Client
+	nextAction    *contract2.Action
 }
 
 func New(data entity.Hero, client *contract.Client) *contract.IHero {
@@ -62,16 +65,21 @@ func (hero *Hero) ApplyDamage(from *contract.IHero, power int) {
 			message = message + fmt.Sprintf(", %v is Died", hero.name)
 		}
 		client := *hero.client
-		client.Send(message)
+		client.Send([]byte(message))
 	} else {
 		message := fmt.Sprintf("%s(%v) take %v damage attacked by %s", hero.name, health, damage, attacker.name)
 		if hero.IsDie() {
 			message = message + fmt.Sprintf(", %v is Died", hero.name)
 		}
-		//service.Logger().Info("%v\n", message)
+		service.Logger().Debug("%v\n", message)
 	}
 }
 
 func (hero *Hero) IsDie() bool {
 	return hero.health <= 0
+}
+
+func (hero *Hero) SetNextAction(action *contract2.Action) {
+	hero.nextAction = action
+	service.Logger().Info("%s %v\n", hero.name, string(action.Serialize()))
 }

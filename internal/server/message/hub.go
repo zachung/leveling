@@ -1,6 +1,7 @@
 package message
 
 import (
+	contract2 "leveling/internal/contract"
 	"leveling/internal/server/contract"
 	"leveling/internal/server/service"
 )
@@ -9,7 +10,7 @@ import (
 // clients.
 type Hub struct {
 	// Registered clients.
-	clients map[*Client]bool
+	clients map[*Client]contract.IHero
 
 	// Inbound messages from the clients.
 	broadcast chan []byte
@@ -21,38 +22,44 @@ type Hub struct {
 	unregister chan *Client
 }
 
-func newHub() *Hub {
-	return &Hub{
+func NewHub() *contract.Hub {
+	h := &Hub{
 		broadcast:  make(chan []byte),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
-		clients:    make(map[*Client]bool),
+		clients:    make(map[*Client]contract.IHero),
 	}
+	hub := contract.Hub(h)
+
+	return &hub
 }
 
-func (h *Hub) run() {
+func (h *Hub) Run() {
 	for {
 		select {
 		case client := <-h.register:
 			c := contract.Client(client)
-			service.Server().NewClientConnect(&c)
-			h.clients[client] = true
+			hero := service.Server().NewClientConnect(&c)
+			h.clients[client] = *hero
 		case client := <-h.unregister:
 			c := contract.Client(client)
 			service.Server().LeaveClientConnect(&c)
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
-				close(client.send)
+				(*client).Close()
 			}
 		case message := <-h.broadcast:
 			for client := range h.clients {
-				select {
-				case client.send <- message:
-				default:
-					close(client.send)
+				if !(*client).Send(message) {
+					(*client).Close()
 					delete(h.clients, client)
 				}
 			}
 		}
 	}
+}
+
+func (h *Hub) SendAction(client *contract.Client, action *contract2.Action) {
+	c := (*client).(*Client)
+	h.clients[c].SetNextAction(action)
 }

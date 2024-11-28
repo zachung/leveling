@@ -2,6 +2,7 @@ package message
 
 import (
 	"github.com/gorilla/websocket"
+	"leveling/internal/server/service"
 	"net/http"
 )
 
@@ -15,10 +16,8 @@ var upgrader = websocket.Upgrader{
 }
 
 func NewMessenger() {
-	hub := newHub()
-	go hub.run()
 	http.HandleFunc("/socket", func(w http.ResponseWriter, r *http.Request) {
-		serveWs(hub, w, r)
+		serveWs((service.Hub()).(*Hub), w, r)
 	})
 	http.ListenAndServe("localhost:8080", nil)
 }

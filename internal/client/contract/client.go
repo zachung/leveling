@@ -19,11 +19,11 @@ type Controller interface {
 	Connect()
 	GetKeyBinding() func(event *tcell.EventKey) *tcell.EventKey
 	Escape()
-	Send(message string)
+	Send(message []byte)
 }
 
 type Connector interface {
 	Connect() bool
 	Close()
-	SendMessage(message string)
+	SendMessage(message []byte)
 }

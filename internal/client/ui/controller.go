@@ -52,7 +52,7 @@ func (c *Controller) Escape() {
 	}()
 }
 
-func (c *Controller) Send(message string) {
-	KeyLogger().Info("%v\n", message)
+func (c *Controller) Send(message []byte) {
+	KeyLogger().Info("%v\n", string(message))
 	service.Connector().SendMessage(message)
 }

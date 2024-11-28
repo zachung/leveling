@@ -1,9 +1,9 @@
 package keys
 
 import (
-	"fmt"
 	"github.com/gdamore/tcell/v2"
 	"leveling/internal/client/contract"
+	contract2 "leveling/internal/contract"
 )
 
 type Rune struct {
@@ -20,7 +20,12 @@ func NewRune(next Func) *Rune {
 
 func (c Rune) handleEvent(controller *contract.Controller, event *tcell.EventKey) *tcell.EventKey {
 	if event.Key() == tcell.KeyRune {
-		(*controller).Send(fmt.Sprintf("type in %v", string(event.Rune())))
+		spell := contract2.Action{Id: 1}
+
+		r := string(event.Rune())
+		if r == "1" {
+			(*controller).Send(spell.Serialize())
+		}
 		return nil
 	}
 	return event

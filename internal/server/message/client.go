@@ -3,6 +3,8 @@ package message
 import (
 	"bytes"
 	"github.com/gorilla/websocket"
+	"leveling/internal/contract"
+	contract2 "leveling/internal/server/contract"
 	"leveling/internal/server/service"
 	"log"
 	"net/http"
@@ -57,12 +59,15 @@ func (c *Client) readPump() {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+				service.Logger().Info("error: %v", err)
 			}
 			break
 		}
+		// Receive client message
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-		service.Logger().Info("received %v\n", message)
+		action := contract.UnSerialize(message)
+		client := contract2.Client(c)
+		service.Hub().SendAction(&client, &action)
 		c.hub.broadcast <- message
 	}
 }
@@ -125,22 +130,29 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256), name: name}
-	client.hub.register <- client
+	c := Client{hub: hub, conn: conn, send: make(chan []byte, 256), name: name}
+	c.hub.register <- &c
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
-	go client.writePump()
-	go client.readPump()
+	go c.writePump()
+	go c.readPump()
 }
 
-func (c *Client) Send(msg string) {
-	defer func() {
-		recover()
-	}()
-	c.send <- []byte(msg)
+func (c *Client) Send(msg []byte) bool {
+	select {
+	case c.send <- msg:
+	default:
+		return false
+	}
+
+	return true
 }
 
 func (c *Client) GetName() string {
 	return c.name
+}
+
+func (c *Client) Close() {
+	close(c.send)
 }

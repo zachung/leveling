@@ -63,15 +63,18 @@ func (s *Server) gameStart() {
 
 func (s *Server) gameInitial() {
 	server := contract.Server(s)
-	service.GetLocator().
+	locator := service.GetLocator().
 		SetServer(&server).
 		SetLogger(service.NewConsole())
 	service.Logger().Info("Server initialing\n")
 
 	// listen for client
 	go func() {
-		service.Logger().Info("Listening for client\n")
+		hub := message.NewHub()
+		locator.SetHub(hub)
+		go (*hub).Run()
 		message.NewMessenger()
+		service.Logger().Info("Listening for client\n")
 	}()
 
 	var heroes []*contract.IHero
@@ -118,12 +121,14 @@ func (s *Server) Stop() {
 	}()
 }
 
-func (s *Server) NewClientConnect(client *contract.Client) {
+func (s *Server) NewClientConnect(client *contract.Client) *contract.IHero {
 	c := *client
 	data := repository.GetHeroByName(c.GetName())
 	newHero := hero.New(data, client)
 	s.round.AddHero(client, newHero)
 	service.Logger().Info("new client connected\n")
+
+	return newHero
 }
 
 func (s *Server) LeaveClientConnect(client *contract.Client) {
