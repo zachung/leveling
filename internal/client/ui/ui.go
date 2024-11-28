@@ -1,18 +1,19 @@
 package ui
 
 import (
-	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+	"leveling/internal/client/message"
+	"leveling/internal/client/service"
 	"leveling/internal/constract"
 )
 
 type UI struct {
-	app        *tview.Application
-	controller *constract.Controller
-	stopChan   chan bool
+	app      *tview.Application
+	stopChan chan bool
 }
 
-func NewUi() *UI {
+func NewUi() *constract.UI {
+	var ui constract.UI
 	app := tview.NewApplication()
 
 	sideView := sidebar()
@@ -31,43 +32,42 @@ func NewUi() *UI {
 			panic(err)
 		}
 	}()
+	u := &UI{app: app, stopChan: make(chan bool)}
+	ui = constract.UI(u)
 
-	return &UI{
-		app:      app,
-		stopChan: make(chan bool),
-	}
+	return &ui
 }
 
-func (ui *UI) SetKeyBinding(keyBinding func(event *tcell.EventKey) *tcell.EventKey) {
-	ui.app.SetInputCapture(keyBinding)
+func (u *UI) SetKeyBinding() {
+	u.app.SetInputCapture(service.Controller().GetKeyBinding())
 }
 
-func (ui *UI) Run() {
+func (u *UI) Run() {
 	(*keyConsole).Info("Initializing...\n")
-	(*ui.controller).Connect()
-	<-ui.stopChan
+	go func() {
+		ui := constract.UI(u)
+		service.GetLocator().
+			SetUI(&ui).
+			SetLogger(u.Logger()).
+			SetConnector(message.NewConnection()).
+			SetController(NewController())
+		service.Controller().Connect()
+		u.SetKeyBinding()
+	}()
+	<-u.stopChan
 }
 
-func (ui *UI) Stop() {
-	ui.app.Stop()
-	ui.stopChan <- true
+func (u *UI) Stop() {
+	u.app.Stop()
+	u.stopChan <- true
 }
 
-func (ui *UI) SetController(controller *constract.Controller) {
-	ui.controller = controller
-	ui.SetKeyBinding((*controller).GetKeyBinding())
-}
-
-func (ui *UI) Logger() *constract.Console {
+func (u *UI) Logger() *constract.Console {
 	return console
 }
 
-func (ui *UI) SideLogger() *constract.Console {
+func (u *UI) SideLogger() *constract.Console {
 	return keyConsole
-}
-
-func Logger() *Console {
-	return (*console).(*Console)
 }
 
 func KeyLogger() *Console {

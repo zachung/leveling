@@ -2,19 +2,18 @@ package ui
 
 import (
 	"github.com/gdamore/tcell/v2"
+	"leveling/internal/client/service"
 	"leveling/internal/client/ui/keys"
 	"leveling/internal/constract"
 	"time"
 )
 
 type Controller struct {
-	ui         *constract.UI
-	connection *constract.Connection
 }
 
-func NewController(ui *constract.UI, connection *constract.Connection) *constract.Controller {
+func NewController() *constract.Controller {
 	var controller constract.Controller
-	c := &Controller{ui, connection}
+	c := &Controller{}
 	controller = constract.Controller(c)
 
 	return &controller
@@ -37,7 +36,7 @@ func (c *Controller) GetKeyBinding() func(event *tcell.EventKey) *tcell.EventKey
 func (c *Controller) Connect() {
 	KeyLogger().Info("Connect to server...\n")
 	go func() {
-		if (*c.connection).Connect() {
+		if service.Connector().Connect() {
 			KeyLogger().Info("Connected!\n")
 			// TODO: another key binding
 		}
@@ -47,13 +46,13 @@ func (c *Controller) Connect() {
 func (c *Controller) Escape() {
 	KeyLogger().Info("Stopping...\n")
 	go func() {
-		(*c.connection).Close()
+		service.Connector().Close()
 		time.Sleep(1 * time.Second)
-		(*c.ui).Stop()
+		service.UI().Stop()
 	}()
 }
 
 func (c *Controller) Send(message string) {
 	KeyLogger().Info("%v\n", message)
-	(*c.connection).SendMessage(message)
+	service.Connector().SendMessage(message)
 }

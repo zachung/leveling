@@ -19,8 +19,7 @@ type Console interface {
 type UI interface {
 	Logger() *Console
 	SideLogger() *Console
-	SetController(controller *Controller)
-	SetKeyBinding(keyBinding func(event *tcell.EventKey) *tcell.EventKey)
+	Run()
 	Stop()
 }
 
@@ -31,7 +30,7 @@ type Controller interface {
 	Send(message string)
 }
 
-type Connection interface {
+type Connector interface {
 	Connect() bool
 	Close()
 	SendMessage(message string)
