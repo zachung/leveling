@@ -1,7 +1,7 @@
 package server
 
 import (
-	"leveling/internal/constract"
+	"leveling/internal/server/constract"
 	"sync"
 )
 

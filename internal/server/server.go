@@ -1,12 +1,12 @@
 package server
 
 import (
-	"fmt"
 	"io"
-	"leveling/internal/constract"
 	"leveling/internal/hero"
 	"leveling/internal/repository"
+	"leveling/internal/server/constract"
 	"leveling/internal/server/message"
+	"leveling/internal/server/service"
 	"leveling/internal/utils"
 	"os"
 	"os/signal"
@@ -38,13 +38,12 @@ func NewServer() *constract.Server {
 }
 
 func (s *Server) Start() {
-	s.write("Server initialing\n")
 	s.gameInitial()
-	s.write("Server started\n")
 	s.gameStart()
 }
 
 func (s *Server) gameStart() {
+	service.Logger().Info("Server started\n")
 	// handle sigint
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -59,23 +58,26 @@ func (s *Server) gameStart() {
 		for {
 			s.gameLoop()
 			if s.isFinish {
-				s.write("Game finished\n")
+				service.Logger().Info("Game finished\n")
 				return
 			}
 		}
-	}()
-
-	// listen for client
-	go func() {
-		s.write("Listening for client\n")
-		server := constract.Server(s)
-		message.NewMessenger(&server)
 	}()
 
 	<-s.stopChan
 }
 
 func (s *Server) gameInitial() {
+	service.GetLocator().
+		SetLogger(service.NewConsole())
+	service.Logger().Info("Server initialing\n")
+
+	// listen for client
+	go func() {
+		service.Logger().Info("Listening for client\n")
+		message.NewMessenger()
+	}()
+
 	var heroes []*constract.IHero
 	for _, data := range repository.GetHeroData() {
 		heroes = append(heroes, hero.New(data))
@@ -118,21 +120,9 @@ func (s *Server) gameUpdate(dt float64) {
 }
 
 func (s *Server) Stop() {
-	s.write("Stopping the application...\n")
+	service.Logger().Info("Stopping the application...\n")
 	go func() {
 		time.Sleep(time.Second)
 		s.stopChan <- true
 	}()
-}
-
-func (s *Server) SetConsole(writer *io.Writer) {
-	s.console = writer
-}
-
-func (s *Server) write(message string) {
-	(*s.console).Write([]byte(message))
-}
-
-func (s *Server) Log(format string, args ...any) {
-	(*s.console).Write([]byte(fmt.Sprintf(format, args...)))
 }

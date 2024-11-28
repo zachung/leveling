@@ -1,7 +1,7 @@
 package weapons
 
 import (
-	"leveling/internal/constract"
+	"leveling/internal/server/constract"
 )
 
 type dagger struct {

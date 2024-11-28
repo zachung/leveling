@@ -2,15 +2,7 @@ package constract
 
 import (
 	"github.com/gdamore/tcell/v2"
-	"io"
 )
-
-type Server interface {
-	Start()
-	Stop()
-	SetConsole(writer *io.Writer)
-	Log(string, ...any)
-}
 
 type Console interface {
 	Info(msg string, args ...any)
