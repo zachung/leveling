@@ -1,8 +1,8 @@
 package service
 
 import (
-	"fmt"
 	"leveling/internal/server/contract"
+	"log"
 )
 
 type Console struct {
@@ -15,5 +15,5 @@ func NewConsole() *contract.Console {
 }
 
 func (c Console) Info(msg string, args ...any) {
-	fmt.Printf(msg, args...)
+	log.Printf(msg, args...)
 }
