@@ -1,19 +1,19 @@
 package weapons
 
 import (
-	"leveling/internal/server/constract"
+	"leveling/internal/server/contract"
 )
 
 type Weapon struct {
 	power  int
 	speed  float64
-	holder *constract.IHero
+	holder *contract.IHero
 }
 
-func (weapon *Weapon) Attack(hero *constract.IHero) {
+func (weapon *Weapon) Attack(hero *contract.IHero) {
 }
 
-func (weapon *Weapon) SetHolder(hero *constract.IHero) {
+func (weapon *Weapon) SetHolder(hero *contract.IHero) {
 	weapon.holder = hero
 }
 
@@ -21,14 +21,14 @@ func (weapon *Weapon) GetSpeed() float64 {
 	return weapon.speed
 }
 
-func NewWeapon(weaponId int) constract.IWeapon {
-	if weaponId == constract.Sword {
+func NewWeapon(weaponId int) contract.IWeapon {
+	if weaponId == contract.Sword {
 		return newSword()
 	}
-	if weaponId == constract.Dagger {
+	if weaponId == contract.Dagger {
 		return newDagger()
 	}
-	if weaponId == constract.Axe {
+	if weaponId == contract.Axe {
 		return newAxe()
 	}
 

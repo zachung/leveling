@@ -1,4 +1,4 @@
-package constract
+package contract
 
 type IWeapon interface {
 	Attack(hero *IHero)

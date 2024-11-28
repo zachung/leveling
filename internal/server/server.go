@@ -4,7 +4,7 @@ import (
 	"io"
 	"leveling/internal/hero"
 	"leveling/internal/repository"
-	"leveling/internal/server/constract"
+	"leveling/internal/server/contract"
 	"leveling/internal/server/message"
 	"leveling/internal/server/service"
 	"leveling/internal/utils"
@@ -25,8 +25,8 @@ type Server struct {
 	stopChan chan bool
 }
 
-func NewServer() *constract.Server {
-	var server constract.Server
+func NewServer() *contract.Server {
+	var server contract.Server
 	server = &Server{
 		isFinish: false,
 		lastTime: utils.Now(),
@@ -78,7 +78,7 @@ func (s *Server) gameInitial() {
 		message.NewMessenger()
 	}()
 
-	var heroes []*constract.IHero
+	var heroes []*contract.IHero
 	for _, data := range repository.GetHeroData() {
 		heroes = append(heroes, hero.New(data))
 	}

@@ -3,7 +3,7 @@ package ui
 import (
 	"fmt"
 	"github.com/rivo/tview"
-	"leveling/internal/client/constract"
+	"leveling/internal/client/contract"
 	"leveling/internal/utils"
 )
 
@@ -11,8 +11,8 @@ type Console struct {
 	writer *tview.TextView
 }
 
-func NewConsole(writer *tview.TextView) *constract.Console {
-	console := constract.Console(&Console{writer})
+func NewConsole(writer *tview.TextView) *contract.Console {
+	console := contract.Console(&Console{writer})
 
 	return &console
 }

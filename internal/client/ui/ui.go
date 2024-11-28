@@ -2,7 +2,7 @@ package ui
 
 import (
 	"github.com/rivo/tview"
-	"leveling/internal/client/constract"
+	"leveling/internal/client/contract"
 	"leveling/internal/client/message"
 	"leveling/internal/client/service"
 )
@@ -12,8 +12,8 @@ type UI struct {
 	stopChan chan bool
 }
 
-func NewUi() *constract.UI {
-	var ui constract.UI
+func NewUi() *contract.UI {
+	var ui contract.UI
 	app := tview.NewApplication()
 
 	sideView := sidebar()
@@ -33,7 +33,7 @@ func NewUi() *constract.UI {
 		}
 	}()
 	u := &UI{app: app, stopChan: make(chan bool)}
-	ui = constract.UI(u)
+	ui = contract.UI(u)
 
 	return &ui
 }
@@ -45,7 +45,7 @@ func (u *UI) SetKeyBinding() {
 func (u *UI) Run() {
 	(*keyConsole).Info("Initializing...\n")
 	go func() {
-		ui := constract.UI(u)
+		ui := contract.UI(u)
 		service.GetLocator().
 			SetUI(&ui).
 			SetLogger(u.Logger()).
@@ -62,11 +62,11 @@ func (u *UI) Stop() {
 	u.stopChan <- true
 }
 
-func (u *UI) Logger() *constract.Console {
+func (u *UI) Logger() *contract.Console {
 	return console
 }
 
-func (u *UI) SideLogger() *constract.Console {
+func (u *UI) SideLogger() *contract.Console {
 	return keyConsole
 }
 

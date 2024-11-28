@@ -1,11 +1,11 @@
 package service
 
 import (
-	"leveling/internal/server/constract"
+	"leveling/internal/server/contract"
 )
 
 type Locator struct {
-	console *constract.Console
+	console *contract.Console
 }
 
 var locator *Locator
@@ -17,11 +17,11 @@ func GetLocator() *Locator {
 	return locator
 }
 
-func Logger() constract.Console {
+func Logger() contract.Console {
 	return *locator.console
 }
 
-func (locator *Locator) SetLogger(console *constract.Console) *Locator {
+func (locator *Locator) SetLogger(console *contract.Console) *Locator {
 	locator.console = console
 
 	return locator

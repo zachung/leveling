@@ -2,7 +2,7 @@ package message
 
 import (
 	"github.com/gorilla/websocket"
-	"leveling/internal/client/constract"
+	"leveling/internal/client/contract"
 	"leveling/internal/client/service"
 	"time"
 )
@@ -13,9 +13,9 @@ type Connector struct {
 
 var done chan interface{}
 
-func NewConnection() *constract.Connector {
+func NewConnection() *contract.Connector {
 	c := &Connector{}
-	connector := constract.Connector(c)
+	connector := contract.Connector(c)
 
 	return &connector
 }

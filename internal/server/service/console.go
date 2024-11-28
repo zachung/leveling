@@ -2,14 +2,14 @@ package service
 
 import (
 	"fmt"
-	"leveling/internal/server/constract"
+	"leveling/internal/server/contract"
 )
 
 type Console struct {
 }
 
-func NewConsole() *constract.Console {
-	console := constract.Console(&Console{})
+func NewConsole() *contract.Console {
+	console := contract.Console(&Console{})
 
 	return &console
 }

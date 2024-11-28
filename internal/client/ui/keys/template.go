@@ -2,12 +2,12 @@ package keys
 
 import (
 	"github.com/gdamore/tcell/v2"
-	"leveling/internal/client/constract"
+	"leveling/internal/client/contract"
 )
 
 type Func interface {
-	Execute(controller *constract.Controller, event *tcell.EventKey) *tcell.EventKey
-	handleEvent(controller *constract.Controller, event *tcell.EventKey) *tcell.EventKey
+	Execute(controller *contract.Controller, event *tcell.EventKey) *tcell.EventKey
+	handleEvent(controller *contract.Controller, event *tcell.EventKey) *tcell.EventKey
 }
 
 type T struct {
@@ -15,7 +15,7 @@ type T struct {
 	next Func
 }
 
-func (t *T) Execute(controller *constract.Controller, event *tcell.EventKey) *tcell.EventKey {
+func (t *T) Execute(controller *contract.Controller, event *tcell.EventKey) *tcell.EventKey {
 	if t.handleEvent(controller, event) == nil {
 		return nil
 	}

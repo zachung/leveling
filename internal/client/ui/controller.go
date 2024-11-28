@@ -2,7 +2,7 @@ package ui
 
 import (
 	"github.com/gdamore/tcell/v2"
-	"leveling/internal/client/constract"
+	"leveling/internal/client/contract"
 	"leveling/internal/client/service"
 	"leveling/internal/client/ui/keys"
 	"time"
@@ -11,16 +11,16 @@ import (
 type Controller struct {
 }
 
-func NewController() *constract.Controller {
-	var controller constract.Controller
+func NewController() *contract.Controller {
+	var controller contract.Controller
 	c := &Controller{}
-	controller = constract.Controller(c)
+	controller = contract.Controller(c)
 
 	return &controller
 }
 
 func (c *Controller) GetKeyBinding() func(event *tcell.EventKey) *tcell.EventKey {
-	controller := constract.Controller(c)
+	controller := contract.Controller(c)
 
 	return func(event *tcell.EventKey) *tcell.EventKey {
 		// chain of responsibility

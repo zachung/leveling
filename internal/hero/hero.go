@@ -3,7 +3,7 @@ package hero
 import (
 	"fmt"
 	"leveling/internal/entity"
-	"leveling/internal/server/constract"
+	"leveling/internal/server/contract"
 	"leveling/internal/server/service"
 	"leveling/internal/weapons"
 	"math"
@@ -15,11 +15,11 @@ type Hero struct {
 	name          string
 	health        int
 	strength      int
-	mainHand      *constract.IWeapon
+	mainHand      *contract.IWeapon
 	roundCooldown float64 // weapon auto attack cooldown
 }
 
-func New(data entity.Hero) *constract.IHero {
+func New(data entity.Hero) *contract.IHero {
 	weapon := weapons.NewWeapon(data.MainHand)
 	hero := &Hero{
 		name:          data.Name,
@@ -28,13 +28,13 @@ func New(data entity.Hero) *constract.IHero {
 		mainHand:      &weapon,
 		roundCooldown: 0,
 	}
-	iHero := constract.IHero(hero)
+	iHero := contract.IHero(hero)
 	weapon.SetHolder(&iHero)
 
 	return &iHero
 }
 
-func (hero *Hero) Attack(dt float64, targets []*constract.IHero) {
+func (hero *Hero) Attack(dt float64, targets []*contract.IHero) {
 	weapon := *hero.mainHand
 	hero.roundCooldown += dt / weapon.GetSpeed()
 	if hero.roundCooldown < ROUNT_TIME_SECOND {
@@ -47,7 +47,7 @@ func (hero *Hero) Attack(dt float64, targets []*constract.IHero) {
 	hero.roundCooldown = math.Mod(roundTime, ROUNT_TIME_SECOND)
 }
 
-func (hero *Hero) ApplyDamage(from *constract.IHero, power int) {
+func (hero *Hero) ApplyDamage(from *contract.IHero, power int) {
 	attacker := (*from).(*Hero)
 	damage := power + attacker.strength
 	message := fmt.Sprintf("%s(%v) take %v damage attacked by %s", hero.name, hero.health, damage, attacker.name)

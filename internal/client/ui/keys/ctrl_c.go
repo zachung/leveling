@@ -2,7 +2,7 @@ package keys
 
 import (
 	"github.com/gdamore/tcell/v2"
-	"leveling/internal/client/constract"
+	"leveling/internal/client/contract"
 )
 
 type CtrlC struct {
@@ -17,7 +17,7 @@ func NewCtrlC(next Func) *CtrlC {
 	return i
 }
 
-func (c CtrlC) handleEvent(controller *constract.Controller, event *tcell.EventKey) *tcell.EventKey {
+func (c CtrlC) handleEvent(controller *contract.Controller, event *tcell.EventKey) *tcell.EventKey {
 	if event.Key() == tcell.KeyCtrlC {
 		(*controller).Escape()
 		return nil

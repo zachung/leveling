@@ -1,4 +1,4 @@
-package constract
+package contract
 
 type Server interface {
 	Start()

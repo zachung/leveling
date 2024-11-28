@@ -2,10 +2,10 @@ package ui
 
 import (
 	"github.com/rivo/tview"
-	"leveling/internal/client/constract"
+	"leveling/internal/client/contract"
 )
 
-var keyConsole *constract.Console
+var keyConsole *contract.Console
 
 func sidebar() tview.Primitive {
 	textView := tview.NewTextView()

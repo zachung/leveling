@@ -1,16 +1,16 @@
 package server
 
 import (
-	"leveling/internal/server/constract"
+	"leveling/internal/server/contract"
 	"sync"
 )
 
 type Round struct {
 	isDone bool
-	heroes []*constract.IHero
+	heroes []*contract.IHero
 }
 
-func NewRound(heroes []*constract.IHero) *Round {
+func NewRound(heroes []*contract.IHero) *Round {
 	return &Round{
 		isDone: false,
 		heroes: heroes,
@@ -38,7 +38,7 @@ func (r *Round) round(dt float64) {
 	wg.Wait()
 }
 
-func (r *Round) attackRound(dt float64, wg *sync.WaitGroup, self *constract.IHero, nextInx int) {
+func (r *Round) attackRound(dt float64, wg *sync.WaitGroup, self *contract.IHero, nextInx int) {
 	defer wg.Done()
 
 	count := len(r.heroes)
@@ -55,7 +55,7 @@ func (r *Round) attackRound(dt float64, wg *sync.WaitGroup, self *constract.IHer
 			return
 		}
 		if !(*target).IsDie() {
-			//(*self).Attack(dt, []*constract.IHero{target})
+			//(*self).Attack(dt, []*contract.IHero{target})
 			break
 		}
 		nextInx++

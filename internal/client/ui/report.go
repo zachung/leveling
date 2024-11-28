@@ -2,10 +2,10 @@ package ui
 
 import (
 	"github.com/rivo/tview"
-	"leveling/internal/client/constract"
+	"leveling/internal/client/contract"
 )
 
-var console *constract.Console
+var console *contract.Console
 
 func battleReport(app *tview.Application) tview.Primitive {
 	textView := tview.NewTextView()

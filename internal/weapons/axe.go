@@ -1,14 +1,14 @@
 package weapons
 
 import (
-	"leveling/internal/server/constract"
+	"leveling/internal/server/contract"
 )
 
 type axe struct {
 	Weapon
 }
 
-func newAxe() constract.IWeapon {
+func newAxe() contract.IWeapon {
 	return &axe{
 		Weapon: Weapon{
 			power: 6,
@@ -17,6 +17,6 @@ func newAxe() constract.IWeapon {
 	}
 }
 
-func (weapon axe) Attack(hero *constract.IHero) {
+func (weapon axe) Attack(hero *contract.IHero) {
 	(*hero).ApplyDamage(weapon.holder, weapon.power)
 }

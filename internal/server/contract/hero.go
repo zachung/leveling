@@ -1,4 +1,4 @@
-package constract
+package contract
 
 type IHero interface {
 	Attack(dt float64, targets []*IHero)
