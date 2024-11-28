@@ -4,6 +4,7 @@ import (
 	"github.com/gorilla/websocket"
 	"leveling/internal/client/contract"
 	"leveling/internal/client/service"
+	"net/http"
 	"time"
 )
 
@@ -22,7 +23,9 @@ func NewConnection() *contract.Connector {
 
 func (c *Connector) Connect() bool {
 	socketUrl := "ws://localhost:8080" + "/socket"
-	conn, _, err := websocket.DefaultDialer.Dial(socketUrl, nil)
+	header := http.Header{}
+	header.Add("Authorization", "Brian")
+	conn, _, err := websocket.DefaultDialer.Dial(socketUrl, header)
 	if err != nil {
 		service.Logger().Info("Error connecting to Websocket Server:%v\n", err)
 		return false

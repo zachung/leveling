@@ -1,6 +1,9 @@
 package message
 
-import "leveling/internal/server/service"
+import (
+	"leveling/internal/server/contract"
+	"leveling/internal/server/service"
+)
 
 // Hub maintains the set of active clients and broadcasts messages to the
 // clients.
@@ -31,14 +34,16 @@ func (h *Hub) run() {
 	for {
 		select {
 		case client := <-h.register:
-			service.Logger().Info("new client connected\n")
+			c := contract.Client(client)
+			service.Server().NewClientConnect(&c)
 			h.clients[client] = true
 		case client := <-h.unregister:
+			c := contract.Client(client)
+			service.Server().LeaveClientConnect(&c)
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				close(client.send)
 			}
-			service.Logger().Info("client leaved\n")
 		case message := <-h.broadcast:
 			for client := range h.clients {
 				select {

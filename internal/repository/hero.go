@@ -7,7 +7,6 @@ import (
 
 func GetHeroData() (heroesEntity []entity.Hero) {
 	heroJsonData := []string{
-		`{"name": "Brian", "Health": 100, "Strength": 6, "mainHand": 0}`,
 		`{"name": "Taras", "Health": 100, "Strength": 8, "mainHand": 2}`,
 		`{"name": "Sin", "Health": 100, "Strength": 2, "mainHand": 1}`,
 	}
@@ -20,4 +19,12 @@ func GetHeroData() (heroesEntity []entity.Hero) {
 		heroesEntity = append(heroesEntity, data)
 	}
 	return
+}
+
+func GetHeroByName(name string) (heroEntity entity.Hero) {
+	jsonDatum := `{"name": "Brian", "Health": 100, "Strength": 6, "mainHand": 0}`
+	data := entity.Hero{}
+	json.Unmarshal([]byte(jsonDatum), &data)
+
+	return data
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"leveling/internal/entity"
 	"leveling/internal/server/contract"
-	"leveling/internal/server/service"
 	"leveling/internal/weapons"
 	"math"
 )
@@ -17,9 +16,10 @@ type Hero struct {
 	strength      int
 	mainHand      *contract.IWeapon
 	roundCooldown float64 // weapon auto attack cooldown
+	client        *contract.Client
 }
 
-func New(data entity.Hero) *contract.IHero {
+func New(data entity.Hero, client *contract.Client) *contract.IHero {
 	weapon := weapons.NewWeapon(data.MainHand)
 	hero := &Hero{
 		name:          data.Name,
@@ -27,6 +27,7 @@ func New(data entity.Hero) *contract.IHero {
 		strength:      data.Strength,
 		mainHand:      &weapon,
 		roundCooldown: 0,
+		client:        client,
 	}
 	iHero := contract.IHero(hero)
 	weapon.SetHolder(&iHero)
@@ -50,13 +51,25 @@ func (hero *Hero) Attack(dt float64, targets []*contract.IHero) {
 func (hero *Hero) ApplyDamage(from *contract.IHero, power int) {
 	attacker := (*from).(*Hero)
 	damage := power + attacker.strength
-	message := fmt.Sprintf("%s(%v) take %v damage attacked by %s", hero.name, hero.health, damage, attacker.name)
+	health := hero.health
 	hero.health -= damage
-	if hero.IsDie() {
-		message = message + fmt.Sprintf(", %v is Died", hero.name)
+	// send message to client
+	// TODO: message type for show
+	// TODO: event queue
+	if hero.client != nil {
+		message := fmt.Sprintf("[red]%s(%v)[white] take [red]%v damage[white] attacked by [::u]%s[::U]", hero.name, health, damage, attacker.name)
+		if hero.IsDie() {
+			message = message + fmt.Sprintf(", %v is Died", hero.name)
+		}
+		client := *hero.client
+		client.Send(message)
+	} else {
+		message := fmt.Sprintf("%s(%v) take %v damage attacked by %s", hero.name, health, damage, attacker.name)
+		if hero.IsDie() {
+			message = message + fmt.Sprintf(", %v is Died", hero.name)
+		}
+		//service.Logger().Info("%v\n", message)
 	}
-	// TODO: send message to client
-	service.Logger().Info("%v\n", message)
 }
 
 func (hero *Hero) IsDie() bool {

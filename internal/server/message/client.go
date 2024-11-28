@@ -37,6 +37,7 @@ type Client struct {
 
 	// Buffered channel of outbound messages.
 	send chan []byte
+	name string
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -114,16 +115,32 @@ func (c *Client) writePump() {
 
 // serveWs handles websocket requests from the peer.
 func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
+	// TODO: real auth verify
+	name := r.Header.Get("Authorization")
+	// TODO: find out hero
+	service.Logger().Info("received %v\n", name)
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
+	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256), name: name}
 	client.hub.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
 	go client.writePump()
 	go client.readPump()
+}
+
+func (c *Client) Send(msg string) {
+	defer func() {
+		recover()
+	}()
+	c.send <- []byte(msg)
+}
+
+func (c *Client) GetName() string {
+	return c.name
 }

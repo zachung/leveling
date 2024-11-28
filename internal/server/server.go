@@ -17,7 +17,6 @@ import (
 const MaxDt = 0.016
 
 type Server struct {
-	isFinish bool
 	round    *Round
 	lastTime time.Time
 	speed    int
@@ -28,9 +27,8 @@ type Server struct {
 func NewServer() *contract.Server {
 	var server contract.Server
 	server = &Server{
-		isFinish: false,
 		lastTime: utils.Now(),
-		speed:    1,
+		speed:    4,
 		stopChan: make(chan bool),
 	}
 
@@ -57,10 +55,6 @@ func (s *Server) gameStart() {
 	go func() {
 		for {
 			s.gameLoop()
-			if s.isFinish {
-				service.Logger().Info("Game finished\n")
-				return
-			}
 		}
 	}()
 
@@ -68,7 +62,9 @@ func (s *Server) gameStart() {
 }
 
 func (s *Server) gameInitial() {
+	server := contract.Server(s)
 	service.GetLocator().
+		SetServer(&server).
 		SetLogger(service.NewConsole())
 	service.Logger().Info("Server initialing\n")
 
@@ -80,7 +76,7 @@ func (s *Server) gameInitial() {
 
 	var heroes []*contract.IHero
 	for _, data := range repository.GetHeroData() {
-		heroes = append(heroes, hero.New(data))
+		heroes = append(heroes, hero.New(data, nil))
 	}
 	s.round = NewRound(heroes)
 }
@@ -96,11 +92,6 @@ func (s *Server) gameLoop() {
 	}()
 
 	for {
-		// 達到結束條件
-		if s.round.IsDone() {
-			s.isFinish = true
-			return
-		}
 		var roundDt float64
 		if dt > MaxDt {
 			dt -= MaxDt
@@ -125,4 +116,17 @@ func (s *Server) Stop() {
 		time.Sleep(time.Second)
 		s.stopChan <- true
 	}()
+}
+
+func (s *Server) NewClientConnect(client *contract.Client) {
+	c := *client
+	data := repository.GetHeroByName(c.GetName())
+	newHero := hero.New(data, client)
+	s.round.AddHero(client, newHero)
+	service.Logger().Info("new client connected\n")
+}
+
+func (s *Server) LeaveClientConnect(client *contract.Client) {
+	s.round.RemoveHero(client)
+	service.Logger().Info("client leaved\n")
 }
