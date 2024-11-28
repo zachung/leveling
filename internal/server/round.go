@@ -9,15 +9,20 @@ import (
 
 type Round struct {
 	isDone bool
-	heroes []*contract.IHero
-	keys   map[*message.Client]int
+	heroes map[*contract.IHero]bool
+	keys   map[*message.Client]*contract.IHero
 	events chan func()
 }
 
 func NewRound(heroes []*contract.IHero) *Round {
+	h := map[*contract.IHero]bool{}
+	for _, hero := range heroes {
+		h[hero] = false
+	}
+
 	return &Round{
-		heroes: heroes,
-		keys:   make(map[*message.Client]int),
+		heroes: h,
+		keys:   make(map[*message.Client]*contract.IHero),
 		events: make(chan func()),
 	}
 }
@@ -26,13 +31,17 @@ func (r *Round) round(dt float64) {
 	count := len(r.heroes)
 	var wg sync.WaitGroup
 	countSurvived := count
-	for i, h := range r.heroes {
+	var heroes []*contract.IHero
+	for h := range r.heroes {
+		heroes = append(heroes, h)
+	}
+	for i, h := range heroes {
 		if (*h).IsDie() {
 			countSurvived--
 			continue
 		}
 		wg.Add(1)
-		go r.attackRound(dt, &wg, h, i+1)
+		go r.attackRound(dt, &wg, heroes, h, i+1)
 	}
 	wg.Wait()
 
@@ -46,10 +55,10 @@ func (r *Round) round(dt float64) {
 	}
 }
 
-func (r *Round) attackRound(dt float64, wg *sync.WaitGroup, self *contract.IHero, nextInx int) {
+func (r *Round) attackRound(dt float64, wg *sync.WaitGroup, heroes []*contract.IHero, self *contract.IHero, nextInx int) {
 	defer wg.Done()
 
-	count := len(r.heroes)
+	count := len(heroes)
 	if (*self).IsDie() {
 		return
 	}
@@ -58,7 +67,7 @@ func (r *Round) attackRound(dt float64, wg *sync.WaitGroup, self *contract.IHero
 		if nextInx == count {
 			nextInx = 0
 		}
-		target := r.heroes[nextInx]
+		target := heroes[nextInx]
 		if self == target {
 			return
 		}
@@ -72,18 +81,23 @@ func (r *Round) attackRound(dt float64, wg *sync.WaitGroup, self *contract.IHero
 
 func (r *Round) AddHero(client *contract.Client, hero *contract.IHero) {
 	c := (*client).(*message.Client)
-	r.keys[c] = len(r.heroes)
-	r.heroes = append(r.heroes, hero)
-	service.Logger().Info("hero %d added\n", r.keys[c])
+	go func() {
+		r.events <- func() {
+			r.keys[c] = hero
+			r.heroes[hero] = false
+			service.Logger().Info("hero %d added\n", r.keys[c])
+		}
+	}()
 }
 
 func (r *Round) RemoveHero(client *contract.Client) {
 	c := (*client).(*message.Client)
 	go func() {
 		r.events <- func() {
-			i := r.keys[c]
-			r.heroes = append(r.heroes[:i], r.heroes[i+1:]...)
-			service.Logger().Info("hero %d leaved\n", i)
+			hero := r.keys[c]
+			delete(r.heroes, hero)
+			delete(r.keys, c)
+			service.Logger().Info("hero %d leaved\n", hero)
 		}
 	}()
 }

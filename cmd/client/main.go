@@ -6,5 +6,5 @@ import (
 
 func main() {
 	newUi := *ui.NewUi()
-	newUi.Run("Sin")
+	newUi.Run("Brian")
 }
