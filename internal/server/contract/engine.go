@@ -22,4 +22,5 @@ type Client interface {
 type Hub interface {
 	Run()
 	SendAction(client *Client, action *contract2.Action)
+	Broadcast(m []byte)
 }

@@ -33,18 +33,15 @@ func (c *Controller) GetKeyBinding() func(event *tcell.EventKey) *tcell.EventKey
 	}
 }
 
-func (c *Controller) Connect() {
-	KeyLogger().Info("Connect to server...\n")
+func (c *Controller) Connect(name string) {
 	go func() {
-		if service.Connector().Connect() {
-			KeyLogger().Info("Connected!\n")
+		if service.Connector().Connect(name) {
 			// TODO: another key binding
 		}
 	}()
 }
 
 func (c *Controller) Escape() {
-	KeyLogger().Info("Stopping...\n")
 	go func() {
 		service.Connector().Close()
 		time.Sleep(1 * time.Second)
@@ -53,6 +50,5 @@ func (c *Controller) Escape() {
 }
 
 func (c *Controller) Send(message []byte) {
-	KeyLogger().Info("%v\n", string(message))
 	service.Connector().SendMessage(message)
 }

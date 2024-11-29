@@ -7,4 +7,5 @@ type IHero interface {
 	ApplyDamage(from *IHero, damage int)
 	IsDie() bool
 	SetNextAction(action *contract2.Action)
+	GetName() string
 }

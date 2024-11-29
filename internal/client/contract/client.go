@@ -11,19 +11,19 @@ type Console interface {
 type UI interface {
 	Logger() *Console
 	SideLogger() *Console
-	Run(name string)
+	Run()
 	Stop()
 }
 
 type Controller interface {
-	Connect()
+	Connect(name string)
 	GetKeyBinding() func(event *tcell.EventKey) *tcell.EventKey
 	Escape()
 	Send(message []byte)
 }
 
 type Connector interface {
-	Connect() bool
+	Connect(name string) bool
 	Close()
 	SendMessage(message []byte)
 }

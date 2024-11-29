@@ -126,12 +126,10 @@ func (s *Server) NewClientConnect(client *contract.Client) *contract.IHero {
 	data := repository.GetHeroByName(c.GetName())
 	newHero := hero.New(data, client)
 	s.round.AddHero(client, newHero)
-	service.Logger().Info("new client connected\n")
 
 	return newHero
 }
 
 func (s *Server) LeaveClientConnect(client *contract.Client) {
 	s.round.RemoveHero(client)
-	service.Logger().Info("client leaved\n")
 }

@@ -42,17 +42,18 @@ func (u *UI) SetKeyBinding() {
 	u.app.SetInputCapture(service.Controller().GetKeyBinding())
 }
 
-func (u *UI) Run(name string) {
-	(*keyConsole).Info("Initializing...\n")
+func (u *UI) Run() {
+	locator := service.GetLocator().SetLogger(u.Logger())
+	service.Logger().Info("Initializing...\n")
 	go func() {
 		ui := contract.UI(u)
-		service.GetLocator().
+		locator.
 			SetUI(&ui).
-			SetLogger(u.Logger()).
-			SetConnector(message.NewConnection(name)).
+			SetKeyLogger(u.SideLogger()).
+			SetConnector(message.NewConnection()).
 			SetController(NewController())
-		service.Controller().Connect()
 		u.SetKeyBinding()
+		service.Logger().Info("Ready for connect, press T/S/B start.\n")
 	}()
 	<-u.stopChan
 }

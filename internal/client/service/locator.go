@@ -5,10 +5,11 @@ import (
 )
 
 type Locator struct {
-	console    *contract.Console
-	controller *contract.Controller
-	ui         *contract.UI
-	connector  *contract.Connector
+	console     *contract.Console
+	controller  *contract.Controller
+	ui          *contract.UI
+	connector   *contract.Connector
+	sideConsole *contract.Console
 }
 
 var locator *Locator
@@ -36,6 +37,10 @@ func Controller() contract.Controller {
 	return *locator.controller
 }
 
+func SideLogger() contract.Console {
+	return *locator.sideConsole
+}
+
 func (locator *Locator) SetLogger(console *contract.Console) *Locator {
 	locator.console = console
 
@@ -56,6 +61,12 @@ func (locator *Locator) SetConnector(connector *contract.Connector) *Locator {
 
 func (locator *Locator) SetUI(ui *contract.UI) *Locator {
 	locator.ui = ui
+
+	return locator
+}
+
+func (locator *Locator) SetKeyLogger(console *contract.Console) *Locator {
+	locator.sideConsole = console
 
 	return locator
 }

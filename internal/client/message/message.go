@@ -10,37 +10,35 @@ import (
 
 type Connector struct {
 	conn *websocket.Conn
-	name string
 }
 
 var done chan interface{}
 
-func NewConnection(name string) *contract.Connector {
-	c := &Connector{name: name}
+func NewConnection() *contract.Connector {
+	c := &Connector{}
 	connector := contract.Connector(c)
 
 	return &connector
 }
 
-func (c *Connector) Connect() bool {
-	service.Logger().Info("%s connecting...\n", c.name)
+func (c *Connector) Connect(name string) bool {
+	service.Logger().Info("%s connecting...\n", name)
 	socketUrl := "ws://localhost:8080" + "/socket"
 	header := http.Header{}
-	header.Add("Authorization", c.name)
+	header.Add("Authorization", name)
 	conn, _, err := websocket.DefaultDialer.Dial(socketUrl, header)
 	if err != nil {
 		service.Logger().Info("Error connecting to Websocket Server:%v\n", err)
 		return false
 	}
 	c.conn = conn
-	done = make(chan interface{})
 	go receiveHandler(conn)
+	service.Logger().Info("Connected!\n")
 
 	return true
 }
 
 func receiveHandler(connection *websocket.Conn) {
-	defer close(done)
 	for {
 		_, msg, err := connection.ReadMessage()
 		if err != nil {
@@ -77,6 +75,9 @@ func (c *Connector) Close() {
 }
 
 func (c *Connector) SendMessage(message []byte) {
+	if c.conn == nil {
+		return
+	}
 	c.conn.WriteMessage(websocket.TextMessage, message)
 }
 

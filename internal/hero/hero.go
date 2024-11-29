@@ -102,3 +102,7 @@ func (hero *Hero) SetNextAction(action *contract2.Action) {
 	hero.nextAction = action
 	service.Logger().Debug("%s %v\n", hero.name, string(action.Serialize()))
 }
+
+func (hero *Hero) GetName() string {
+	return hero.name
+}

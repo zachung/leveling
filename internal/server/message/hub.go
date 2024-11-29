@@ -63,3 +63,7 @@ func (h *Hub) SendAction(client *contract.Client, action *contract2.Action) {
 	c := (*client).(*Client)
 	h.clients[c].SetNextAction(action)
 }
+
+func (h *Hub) Broadcast(m []byte) {
+	h.broadcast <- m
+}
