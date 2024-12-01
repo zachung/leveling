@@ -121,7 +121,6 @@ func (c *Client) writePump() {
 func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	// TODO: real auth verify
 	name := r.Header.Get("Authorization")
-	// TODO: find out hero
 	service.Logger().Info("Welcome %v\n", name)
 
 	conn, err := upgrader.Upgrade(w, r, nil)

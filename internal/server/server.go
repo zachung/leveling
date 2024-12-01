@@ -2,12 +2,12 @@ package server
 
 import (
 	"io"
-	"leveling/internal/hero"
-	"leveling/internal/repository"
 	"leveling/internal/server/contract"
+	"leveling/internal/server/hero"
 	"leveling/internal/server/message"
+	"leveling/internal/server/repository"
 	"leveling/internal/server/service"
-	"leveling/internal/utils"
+	"leveling/internal/server/utils"
 	"os"
 	"os/signal"
 	"syscall"

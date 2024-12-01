@@ -3,10 +3,10 @@ package hero
 import (
 	"fmt"
 	contract2 "leveling/internal/contract"
-	"leveling/internal/entity"
 	"leveling/internal/server/contract"
+	"leveling/internal/server/entity"
 	"leveling/internal/server/service"
-	"leveling/internal/weapons"
+	"leveling/internal/server/weapons"
 	"math"
 )
 

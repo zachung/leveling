@@ -2,7 +2,7 @@ package repository
 
 import (
 	"encoding/json"
-	"leveling/internal/entity"
+	"leveling/internal/server/entity"
 )
 
 var enemiesJsonData = map[string]string{}
