@@ -19,18 +19,12 @@ func NewController() *contract.Controller {
 	return &controller
 }
 
-func (c *Controller) GetKeyBinding() func(event *tcell.EventKey) *tcell.EventKey {
-	controller := contract.Controller(c)
+func handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
+	return (*keys.NewCtrlC(keys.NewWorldPanel(keys.NewReportPanel(nil)))).Execute(event)
+}
 
-	return func(event *tcell.EventKey) *tcell.EventKey {
-		// chain of responsibility
-		keyHandlers := keys.NewCtrlC(keys.NewRune(nil))
-
-		if (*keyHandlers).Execute(&controller, event) == nil {
-			return nil
-		}
-		return event
-	}
+func handleReportKeys(event *tcell.EventKey) *tcell.EventKey {
+	return (*keys.NewRune(nil)).Execute(event)
 }
 
 func (c *Controller) Connect(name string) {

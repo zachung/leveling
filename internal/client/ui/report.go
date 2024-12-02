@@ -7,9 +7,14 @@ import (
 
 var console *contract.Console
 
-func battleReport(app *tview.Application) tview.Primitive {
+type Report struct {
+	textView *tview.TextView
+	app      *tview.Application
+}
+
+func battleReport(app *tview.Application) *Report {
 	textView := tview.NewTextView()
-	textView.SetTitle("Report").
+	textView.SetTitle("Report(F1)").
 		SetTitleAlign(tview.AlignLeft).
 		SetBorder(true)
 	textView.SetDynamicColors(true)
@@ -17,7 +22,12 @@ func battleReport(app *tview.Application) tview.Primitive {
 		app.Draw()
 		textView.ScrollToEnd()
 	})
+	textView.SetInputCapture(handleReportKeys)
 	console = NewConsole(textView)
 
-	return textView
+	return &Report{textView: textView, app: app}
+}
+
+func (r *Report) Focus() {
+	r.app.SetFocus(r.textView)
 }

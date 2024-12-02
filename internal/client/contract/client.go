@@ -1,7 +1,6 @@
 package contract
 
 import (
-	"github.com/gdamore/tcell/v2"
 	"leveling/internal/contract"
 )
 
@@ -16,19 +15,25 @@ type UI interface {
 	Stop()
 	State() State
 	World() World
+	Report() Panel
 }
 
 type State interface {
 	UpdateState(event contract.StateChangeEvent)
 }
 
+type Panel interface {
+	Focus()
+}
+
 type World interface {
+	Panel
 	UpdateWorld(event contract.WorldEvent)
+	SelectTarget(index int)
 }
 
 type Controller interface {
 	Connect(name string)
-	GetKeyBinding() func(event *tcell.EventKey) *tcell.EventKey
 	Escape()
 	Send(message contract.Message)
 }

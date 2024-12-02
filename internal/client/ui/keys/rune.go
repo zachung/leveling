@@ -2,7 +2,6 @@ package keys
 
 import (
 	"github.com/gdamore/tcell/v2"
-	"leveling/internal/client/contract"
 	"leveling/internal/client/service"
 	contract2 "leveling/internal/contract"
 )
@@ -19,19 +18,18 @@ func NewRune(next Func) *Rune {
 	return i
 }
 
-func (c Rune) handleEvent(controller *contract.Controller, event *tcell.EventKey) *tcell.EventKey {
+func (c Rune) handleEvent(event *tcell.EventKey) *tcell.EventKey {
 	if event.Key() == tcell.KeyRune {
 		spell := contract2.ActionEvent{Event: contract2.Event{Type: contract2.Action}, Id: 1}
 
-		r := string(event.Rune())
-		switch r {
-		case "1":
-			(*controller).Send(spell)
-		case "s":
+		switch event.Rune() {
+		case '1':
+			service.Controller().Send(spell)
+		case 's':
 			service.Controller().Connect("Sin")
-		case "t":
+		case 't':
 			service.Controller().Connect("Taras")
-		case "b":
+		case 'b':
 			service.Controller().Connect("Brian")
 		}
 		return nil

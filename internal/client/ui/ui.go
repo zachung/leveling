@@ -12,6 +12,7 @@ type UI struct {
 	stopChan chan bool
 	state    *contract.State
 	world    *contract.World
+	report   *contract.Panel
 }
 
 func NewUi() *contract.UI {
@@ -19,7 +20,7 @@ func NewUi() *contract.UI {
 	app := tview.NewApplication()
 
 	sideView := sidebar()
-	reportView := battleReport(app)
+	report := battleReport(app)
 	state := newState(app)
 	world := newWorld(app)
 
@@ -29,9 +30,9 @@ func NewUi() *contract.UI {
 		AddItem(state.textView, 0, 0, 1, 1, 0, 0, false).
 		AddItem(world.textView, 0, 1, 2, 1, 0, 0, false).
 		AddItem(sideView, 2, 1, 1, 1, 0, 0, false).
-		AddItem(reportView, 1, 0, 2, 1, 0, 0, false)
+		AddItem(report.textView, 1, 0, 2, 1, 0, 0, false)
 
-	app.SetRoot(grid, true).SetFocus(reportView)
+	app.SetRoot(grid, true).SetFocus(report.textView)
 
 	go func() {
 		if err := app.Run(); err != nil {
@@ -40,14 +41,15 @@ func NewUi() *contract.UI {
 	}()
 	s := contract.State(state)
 	w := contract.World(world)
-	u := &UI{app: app, stopChan: make(chan bool), state: &s, world: &w}
+	p := contract.Panel(report)
+	u := &UI{app: app, stopChan: make(chan bool), state: &s, world: &w, report: &p}
 	ui = contract.UI(u)
 
 	return &ui
 }
 
 func (u *UI) SetKeyBinding() {
-	u.app.SetInputCapture(service.Controller().GetKeyBinding())
+	u.app.SetInputCapture(handleGlobalKeys)
 }
 
 func (u *UI) Run() {
@@ -85,4 +87,8 @@ func (u *UI) State() contract.State {
 
 func (u *UI) World() contract.World {
 	return *u.world
+}
+
+func (u *UI) Report() contract.Panel {
+	return *u.report
 }
