@@ -81,6 +81,9 @@ func receiveHandler(connection *websocket.Conn, name string) {
 				message = fmt.Sprintf("%v is Died.\n", event.Name)
 			}
 			service.Logger().Info(message)
+		case contract2.WorldEvent:
+			event := unSerialize.(contract2.WorldEvent)
+			service.UI().World().UpdateWorld(event)
 		default:
 			service.Logger().Info("Received unknown message: %+v %T\n", unSerialize, unSerialize)
 		}

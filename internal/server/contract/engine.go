@@ -17,6 +17,7 @@ type Client interface {
 	Send(msg contract2.Message) bool
 	GetName() string
 	Close()
+	Broadcast(m contract2.Message)
 }
 
 type Hub interface {

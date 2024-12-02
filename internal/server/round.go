@@ -10,10 +10,11 @@ import (
 )
 
 type Round struct {
-	isDone bool
-	heroes map[*contract.IHero]bool
-	keys   map[*message.Client]*contract.IHero
-	events chan func()
+	isDone       bool
+	heroes       map[*contract.IHero]bool
+	keys         map[*message.Client]*contract.IHero
+	events       chan func()
+	roundUpdated bool
 }
 
 func NewRound(heroes []*contract.IHero) *Round {
@@ -52,6 +53,10 @@ func (r *Round) round(dt float64) {
 		case event := <-r.events:
 			event()
 		default:
+			if r.roundUpdated {
+				r.broadcastHeroes()
+			}
+			r.roundUpdated = false
 			return
 		}
 	}
@@ -74,7 +79,9 @@ func (r *Round) attackRound(dt float64, wg *sync.WaitGroup, heroes []*contract.I
 			return
 		}
 		if !(*target).IsDie() {
-			(*self).Attack(dt, []*contract.IHero{target})
+			if (*self).Attack(dt, []*contract.IHero{target}) {
+				r.roundUpdated = true
+			}
 			break
 		}
 		nextInx++
@@ -97,6 +104,7 @@ func (r *Round) AddHero(client *contract.Client, hero *contract.IHero) {
 				Health: h.GetHealth(),
 			}
 			c.Send(event)
+			r.roundUpdated = true
 			service.Logger().Info("%s arrived, current %d.\n", h.GetName(), len(r.keys))
 		}
 	}()
@@ -109,7 +117,24 @@ func (r *Round) RemoveHero(client *contract.Client) {
 			hero := r.keys[c]
 			delete(r.heroes, hero)
 			delete(r.keys, c)
+			r.roundUpdated = true
 			service.Logger().Info("Bye bye %s, now %d.\n", (*hero).GetName(), len(r.keys))
 		}
 	}()
+}
+
+func (r *Round) broadcastHeroes() {
+	var heroes []contract2.Hero
+	for hero := range r.heroes {
+		h := (*hero).(*hero2.Hero)
+		heroes = append(heroes, contract2.Hero{h.GetName(), h.GetHealth()})
+	}
+
+	event := contract2.WorldEvent{
+		Event: contract2.Event{
+			Type: contract2.World,
+		},
+		Heroes: heroes,
+	}
+	service.Hub().Broadcast(event)
 }

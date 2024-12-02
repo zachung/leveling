@@ -15,10 +15,15 @@ type UI interface {
 	Run()
 	Stop()
 	State() State
+	World() World
 }
 
 type State interface {
 	UpdateState(event contract.StateChangeEvent)
+}
+
+type World interface {
+	UpdateWorld(event contract.WorldEvent)
 }
 
 type Controller interface {

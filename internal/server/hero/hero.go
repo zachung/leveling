@@ -38,22 +38,26 @@ func New(data entity.Hero, client *contract.Client) *contract.IHero {
 	return &iHero
 }
 
-func (hero *Hero) Attack(dt float64, targets []*contract.IHero) {
+func (hero *Hero) Attack(dt float64, targets []*contract.IHero) bool {
 	weapon := *hero.mainHand
 	hero.roundCooldown += dt / weapon.GetSpeed()
 	if hero.roundCooldown < ROUNT_TIME_SECOND {
-		return
+		return false
 	}
 	roundTime := hero.roundCooldown
 	if hero.nextAction == nil {
 		// 下次可以直接動作
 		hero.roundCooldown = ROUNT_TIME_SECOND
+
+		return false
 	} else {
 		for rounds := int64(roundTime / ROUNT_TIME_SECOND); rounds > 0; rounds-- {
 			weapon.Attack(targets[0])
 		}
 		hero.nextAction = nil
 		hero.roundCooldown = math.Mod(roundTime, ROUNT_TIME_SECOND)
+
+		return true
 	}
 }
 

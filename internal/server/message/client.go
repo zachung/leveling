@@ -153,3 +153,7 @@ func (c *Client) GetName() string {
 func (c *Client) Close() {
 	close(c.send)
 }
+
+func (c *Client) Broadcast(m contract.Message) {
+	c.hub.broadcast <- m
+}

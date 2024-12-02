@@ -11,6 +11,7 @@ type UI struct {
 	app      *tview.Application
 	stopChan chan bool
 	state    *contract.State
+	world    *contract.World
 }
 
 func NewUi() *contract.UI {
@@ -20,13 +21,15 @@ func NewUi() *contract.UI {
 	sideView := sidebar()
 	reportView := battleReport(app)
 	state := newState(app)
+	world := newWorld(app)
 
 	grid := tview.NewGrid().
-		SetRows(-1, -3).
+		SetRows(-2, -2, -2).
 		SetColumns(-3, 0).
 		AddItem(state.textView, 0, 0, 1, 1, 0, 0, false).
-		AddItem(sideView, 0, 1, 2, 1, 0, 0, false).
-		AddItem(reportView, 1, 0, 1, 1, 0, 0, false)
+		AddItem(world.textView, 0, 1, 2, 1, 0, 0, false).
+		AddItem(sideView, 2, 1, 1, 1, 0, 0, false).
+		AddItem(reportView, 1, 0, 2, 1, 0, 0, false)
 
 	app.SetRoot(grid, true).SetFocus(reportView)
 
@@ -36,7 +39,8 @@ func NewUi() *contract.UI {
 		}
 	}()
 	s := contract.State(state)
-	u := &UI{app: app, stopChan: make(chan bool), state: &s}
+	w := contract.World(world)
+	u := &UI{app: app, stopChan: make(chan bool), state: &s, world: &w}
 	ui = contract.UI(u)
 
 	return &ui
@@ -77,4 +81,8 @@ func (u *UI) SideLogger() *contract.Console {
 
 func (u *UI) State() contract.State {
 	return *u.state
+}
+
+func (u *UI) World() contract.World {
+	return *u.world
 }

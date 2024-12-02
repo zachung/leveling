@@ -14,12 +14,12 @@ import (
 	"time"
 )
 
-const MaxDt = 0.016
+const MaxDtMs = 16
 
 type Server struct {
 	round    *Round
 	lastTime time.Time
-	speed    int
+	speed    int32
 	console  *io.Writer
 	stopChan chan bool
 }
@@ -87,22 +87,23 @@ func (s *Server) gameInitial() {
 func (s *Server) gameLoop() {
 	// time
 	now := utils.Now()
-	seconds := now.Sub(s.lastTime).Seconds()
-	dt := seconds * float64(s.speed)
+	milliseconds := int32(now.Sub(s.lastTime).Milliseconds())
+	dt := milliseconds * s.speed
 
 	defer func() {
 		s.lastTime = now
 	}()
 
 	for {
-		var roundDt float64
-		if dt > MaxDt {
-			dt -= MaxDt
-			roundDt = MaxDt
+		var roundDt int32
+		if dt > MaxDtMs {
+			dt -= MaxDtMs
+			roundDt = MaxDtMs
 		} else {
-			roundDt = dt
+			time.Sleep(time.Duration(MaxDtMs-dt) * time.Millisecond)
+			return
 		}
-		s.gameUpdate(roundDt)
+		s.gameUpdate(float64(dt) / 1000)
 		if roundDt == dt {
 			break
 		}

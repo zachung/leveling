@@ -26,3 +26,13 @@ type HeroDieEvent struct {
 	Event `json:"event,omitempty"`
 	Name  string `json:"name"`
 }
+
+type Hero struct {
+	Name   string `json:"name"`
+	Health int    `json:"health"`
+}
+
+type WorldEvent struct {
+	Event  `json:"event,omitempty"`
+	Heroes []Hero `json:"heroes,omitempty"`
+}
