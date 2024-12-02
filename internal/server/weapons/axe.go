@@ -11,7 +11,7 @@ type axe struct {
 func newAxe() contract.IWeapon {
 	return &axe{
 		Weapon: Weapon{
-			power: 6,
+			power: 600,
 			speed: 4,
 		},
 	}

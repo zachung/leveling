@@ -66,8 +66,13 @@ func (c *Client) readPump() {
 		// Receive client message
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
 		action := contract.UnSerialize(message)
-		client := contract2.Client(c)
-		service.Hub().SendAction(&client, &action)
+		service.Logger().Info("%+v\n", action)
+		switch action.(type) {
+		case contract.ActionEvent:
+			client := contract2.Client(c)
+			c2 := action.(contract.ActionEvent)
+			service.Hub().SendAction(&client, &c2)
+		}
 	}
 }
 
@@ -97,13 +102,6 @@ func (c *Client) writePump() {
 				return
 			}
 			w.Write(message)
-
-			// Add queued chat messages to the current websocket message.
-			n := len(c.send)
-			for i := 0; i < n; i++ {
-				w.Write(newline)
-				w.Write(<-c.send)
-			}
 
 			if err := w.Close(); err != nil {
 				return
@@ -137,9 +135,10 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	go c.readPump()
 }
 
-func (c *Client) Send(msg []byte) bool {
+func (c *Client) Send(msg contract.Message) bool {
+	serialize := contract.Serialize(msg)
 	select {
-	case c.send <- msg:
+	case c.send <- serialize:
 	default:
 		return false
 	}

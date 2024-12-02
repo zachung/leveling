@@ -70,7 +70,3 @@ func (u *UI) Logger() *contract.Console {
 func (u *UI) SideLogger() *contract.Console {
 	return keyConsole
 }
-
-func KeyLogger() *Console {
-	return (*keyConsole).(*Console)
-}

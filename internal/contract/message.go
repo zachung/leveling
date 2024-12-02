@@ -1,23 +1,28 @@
 package contract
 
-import "encoding/json"
-
 type Message interface {
 	Serialize() []byte
 }
 
-type Action struct {
-	Id int `json:"id"`
+type Event struct {
+	Message `json:"message,omitempty"`
+	Type    MessageType `json:"type"`
 }
 
-func (s Action) Serialize() []byte {
-	serializedSpell, _ := json.Marshal(s)
-	return serializedSpell
+type ActionEvent struct {
+	Event `json:"event,omitempty"`
+	Id    int `json:"id"`
 }
 
-func UnSerialize(bytes []byte) Action {
-	var action Action
-	json.Unmarshal(bytes, &action)
+type GetHurtEvent struct {
+	Event        `json:"event,omitempty"`
+	Name         string `json:"name"`
+	Health       int    `json:"health"`
+	Damage       int    `json:"damage"`
+	AttackerName string `json:"attacker_name"`
+}
 
-	return action
+type HeroDieEvent struct {
+	Event `json:"event,omitempty"`
+	Name  string `json:"name"`
 }

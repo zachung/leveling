@@ -13,7 +13,7 @@ type Hub struct {
 	clients map[*Client]contract.IHero
 
 	// Inbound messages from the clients.
-	broadcast chan []byte
+	broadcast chan contract2.Message
 
 	// Register requests from the clients.
 	register chan *Client
@@ -24,7 +24,7 @@ type Hub struct {
 
 func NewHub() *contract.Hub {
 	h := &Hub{
-		broadcast:  make(chan []byte),
+		broadcast:  make(chan contract2.Message),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		clients:    make(map[*Client]contract.IHero),
@@ -59,11 +59,11 @@ func (h *Hub) Run() {
 	}
 }
 
-func (h *Hub) SendAction(client *contract.Client, action *contract2.Action) {
+func (h *Hub) SendAction(client *contract.Client, action *contract2.ActionEvent) {
 	c := (*client).(*Client)
 	h.clients[c].SetNextAction(action)
 }
 
-func (h *Hub) Broadcast(m []byte) {
+func (h *Hub) Broadcast(m contract2.Message) {
 	h.broadcast <- m
 }

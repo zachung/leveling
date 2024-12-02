@@ -5,7 +5,7 @@ import (
 	"leveling/internal/client/contract"
 	"leveling/internal/client/service"
 	"leveling/internal/client/ui/keys"
-	"time"
+	contract2 "leveling/internal/contract"
 )
 
 type Controller struct {
@@ -44,11 +44,10 @@ func (c *Controller) Connect(name string) {
 func (c *Controller) Escape() {
 	go func() {
 		service.Connector().Close()
-		time.Sleep(1 * time.Second)
 		service.UI().Stop()
 	}()
 }
 
-func (c *Controller) Send(message []byte) {
+func (c *Controller) Send(message contract2.Message) {
 	service.Connector().SendMessage(message)
 }

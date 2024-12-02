@@ -14,13 +14,13 @@ type Console interface {
 }
 
 type Client interface {
-	Send(msg []byte) bool
+	Send(msg contract2.Message) bool
 	GetName() string
 	Close()
 }
 
 type Hub interface {
 	Run()
-	SendAction(client *Client, action *contract2.Action)
-	Broadcast(m []byte)
+	SendAction(client *Client, action *contract2.ActionEvent)
+	Broadcast(m contract2.Message)
 }

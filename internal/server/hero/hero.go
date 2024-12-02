@@ -19,7 +19,7 @@ type Hero struct {
 	mainHand      *contract.IWeapon
 	roundCooldown float64 // weapon auto attack cooldown
 	client        *contract.Client
-	nextAction    *contract2.Action
+	nextAction    *contract2.ActionEvent
 }
 
 func New(data entity.Hero, client *contract.Client) *contract.IHero {
@@ -67,29 +67,30 @@ func (hero *Hero) ApplyDamage(from *contract.IHero, power int) {
 }
 
 func messageEvent(hero *Hero, health int, damage int, attacker *Hero) {
-	// TODO: message type for show
 	// TODO: event queue
 	var message string
 	// display for applied
-	message = fmt.Sprintf("[red]-%v health[white] from [::u]%s[::U], remain %v", damage, attacker.name, health)
-	if hero.client != nil {
-		client := *hero.client
-		client.Send([]byte(message))
-		if hero.IsDie() {
-			client.Send([]byte("You Died"))
-		}
-	} else {
-		service.Logger().Debug(message)
+	getHurtEvent := contract2.GetHurtEvent{
+		Event: contract2.Event{
+			Type: contract2.GetHurt,
+		},
+		Name:         hero.name,
+		Health:       health,
+		Damage:       damage,
+		AttackerName: attacker.name,
 	}
-	// display for attacker
-	message = fmt.Sprintf("attack [red]%s(%v)[white] make [red]%v[white] damage", hero.name, health, damage)
-	if attacker.client != nil {
-		client := *attacker.client
-		client.Send([]byte(message))
+	if hero.client != nil {
+		fromClient := *attacker.client
+		toClient := *hero.client
+		fromClient.Send(getHurtEvent)
+		toClient.Send(getHurtEvent)
 		if hero.IsDie() {
-			client.Send([]byte(fmt.Sprintf("%v is Died", hero.name)))
+			dieEvent := contract2.HeroDieEvent{Event: contract2.Event{Type: contract2.HeroDie}, Name: hero.name}
+			fromClient.Send(dieEvent)
+			toClient.Send(dieEvent)
 		}
 	} else {
+		message = fmt.Sprintf("-%v health from %s, remain %v", getHurtEvent.Damage, getHurtEvent.AttackerName, getHurtEvent.Health)
 		service.Logger().Debug(message)
 	}
 }
@@ -98,11 +99,15 @@ func (hero *Hero) IsDie() bool {
 	return hero.health <= 0
 }
 
-func (hero *Hero) SetNextAction(action *contract2.Action) {
+func (hero *Hero) SetNextAction(action *contract2.ActionEvent) {
 	hero.nextAction = action
-	service.Logger().Debug("%s %v\n", hero.name, string(action.Serialize()))
+	service.Logger().Debug("%s %+v\n", hero.name, action)
 }
 
 func (hero *Hero) GetName() string {
 	return hero.name
+}
+
+func (hero *Hero) GetHealth() int {
+	return hero.health
 }

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"leveling/internal/server/contract"
 	"leveling/internal/server/message"
 	"leveling/internal/server/service"
@@ -86,7 +85,7 @@ func (r *Round) AddHero(client *contract.Client, hero *contract.IHero) {
 		r.events <- func() {
 			r.keys[c] = hero
 			r.heroes[hero] = false
-			service.Hub().Broadcast([]byte(fmt.Sprintf("%s joined!", (*hero).GetName())))
+			//service.Hub().Broadcast([]byte(fmt.Sprintf("%s joined!", (*hero).GetName())))
 			service.Logger().Info("%s arrived, current %d.\n", (*hero).GetName(), len(r.keys))
 		}
 	}()
