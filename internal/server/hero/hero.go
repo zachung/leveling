@@ -60,22 +60,21 @@ func (hero *Hero) Attack(dt float64, targets []*contract.IHero) {
 func (hero *Hero) ApplyDamage(from *contract.IHero, power int) {
 	attacker := (*from).(*Hero)
 	damage := power + attacker.strength
-	health := hero.health
 	hero.health -= damage
 	// send message to client
-	messageEvent(hero, health, damage, attacker)
+	messageEvent(hero, damage, attacker)
 }
 
-func messageEvent(hero *Hero, health int, damage int, attacker *Hero) {
+func messageEvent(hero *Hero, damage int, attacker *Hero) {
 	// TODO: event queue
 	var message string
 	// display for applied
-	getHurtEvent := contract2.GetHurtEvent{
+	getHurtEvent := contract2.StateChangeEvent{
 		Event: contract2.Event{
-			Type: contract2.GetHurt,
+			Type: contract2.StateChange,
 		},
 		Name:         hero.name,
-		Health:       health,
+		Health:       hero.health,
 		Damage:       damage,
 		AttackerName: attacker.name,
 	}

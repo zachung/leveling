@@ -49,15 +49,18 @@ func receiveHandler(connection *websocket.Conn, name string) {
 		}
 		unSerialize := contract2.UnSerialize(msg)
 		switch unSerialize.(type) {
-		case contract2.GetHurtEvent:
-			event := unSerialize.(contract2.GetHurtEvent)
+		case contract2.StateChangeEvent:
+			event := unSerialize.(contract2.StateChangeEvent)
 			var message string
 			if event.Name == name {
-				message = fmt.Sprintf("[red]-%v health[white] from [::u]%s[::U], remain %v\n",
-					event.Damage,
-					event.AttackerName,
-					event.Health,
-				)
+				if event.AttackerName != "" {
+					message = fmt.Sprintf("[red]-%v health[white] from [::u]%s[::U], remain %v\n",
+						event.Damage,
+						event.AttackerName,
+						event.Health,
+					)
+				}
+				service.UI().State().UpdateState(event)
 			} else {
 				message = fmt.Sprintf("attack [red]%s(%v)[white] make [red]%v[white] damage\n",
 					event.Name,
@@ -65,12 +68,15 @@ func receiveHandler(connection *websocket.Conn, name string) {
 					event.Damage,
 				)
 			}
-			service.Logger().Info(message)
+			if message != "" {
+				service.Logger().Info(message)
+			}
 		case contract2.HeroDieEvent:
 			event := unSerialize.(contract2.HeroDieEvent)
 			var message string
 			if event.Name == name {
 				message = "[red]You Died[white].\n"
+				service.UI().State().UpdateState(contract2.StateChangeEvent{Name: name, Health: 0})
 			} else {
 				message = fmt.Sprintf("%v is Died.\n", event.Name)
 			}

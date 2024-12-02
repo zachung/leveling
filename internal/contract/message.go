@@ -14,12 +14,12 @@ type ActionEvent struct {
 	Id    int `json:"id"`
 }
 
-type GetHurtEvent struct {
+type StateChangeEvent struct {
 	Event        `json:"event,omitempty"`
 	Name         string `json:"name"`
 	Health       int    `json:"health"`
-	Damage       int    `json:"damage"`
-	AttackerName string `json:"attacker_name"`
+	Damage       int    `json:"damage,omitempty"`
+	AttackerName string `json:"attacker_name,omitempty"`
 }
 
 type HeroDieEvent struct {

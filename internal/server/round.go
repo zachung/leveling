@@ -1,7 +1,9 @@
 package server
 
 import (
+	contract2 "leveling/internal/contract"
 	"leveling/internal/server/contract"
+	hero2 "leveling/internal/server/hero"
 	"leveling/internal/server/message"
 	"leveling/internal/server/service"
 	"sync"
@@ -86,7 +88,16 @@ func (r *Round) AddHero(client *contract.Client, hero *contract.IHero) {
 			r.keys[c] = hero
 			r.heroes[hero] = false
 			//service.Hub().Broadcast([]byte(fmt.Sprintf("%s joined!", (*hero).GetName())))
-			service.Logger().Info("%s arrived, current %d.\n", (*hero).GetName(), len(r.keys))
+			h := (*hero).(*hero2.Hero)
+			event := contract2.StateChangeEvent{
+				Event: contract2.Event{
+					Type: contract2.StateChange,
+				},
+				Name:   h.GetName(),
+				Health: h.GetHealth(),
+			}
+			c.Send(event)
+			service.Logger().Info("%s arrived, current %d.\n", h.GetName(), len(r.keys))
 		}
 	}()
 }

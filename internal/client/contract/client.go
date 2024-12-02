@@ -14,6 +14,11 @@ type UI interface {
 	SideLogger() *Console
 	Run()
 	Stop()
+	State() State
+}
+
+type State interface {
+	UpdateState(event contract.StateChangeEvent)
 }
 
 type Controller interface {

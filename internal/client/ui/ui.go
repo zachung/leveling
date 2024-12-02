@@ -10,6 +10,7 @@ import (
 type UI struct {
 	app      *tview.Application
 	stopChan chan bool
+	state    *contract.State
 }
 
 func NewUi() *contract.UI {
@@ -18,12 +19,14 @@ func NewUi() *contract.UI {
 
 	sideView := sidebar()
 	reportView := battleReport(app)
+	state := newState(app)
 
 	grid := tview.NewGrid().
-		SetRows(0).
+		SetRows(-1, -3).
 		SetColumns(-3, 0).
-		AddItem(sideView, 0, 1, 1, 1, 0, 0, false).
-		AddItem(reportView, 0, 0, 1, 1, 0, 0, false)
+		AddItem(state.textView, 0, 0, 1, 1, 0, 0, false).
+		AddItem(sideView, 0, 1, 2, 1, 0, 0, false).
+		AddItem(reportView, 1, 0, 1, 1, 0, 0, false)
 
 	app.SetRoot(grid, true).SetFocus(reportView)
 
@@ -32,7 +35,8 @@ func NewUi() *contract.UI {
 			panic(err)
 		}
 	}()
-	u := &UI{app: app, stopChan: make(chan bool)}
+	s := contract.State(state)
+	u := &UI{app: app, stopChan: make(chan bool), state: &s}
 	ui = contract.UI(u)
 
 	return &ui
@@ -69,4 +73,8 @@ func (u *UI) Logger() *contract.Console {
 
 func (u *UI) SideLogger() *contract.Console {
 	return keyConsole
+}
+
+func (u *UI) State() contract.State {
+	return *u.state
 }
