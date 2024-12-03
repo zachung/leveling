@@ -44,8 +44,12 @@ func (s *World) UpdateWorld(event contract.WorldEvent) {
 	// sort
 	m := make(map[string]contract.Hero)
 	keys := make([]string, 0, len(heroes))
+	curName := service.Connector().GetCurName()
 	for _, hero := range heroes {
-		// TODO: ignore self
+		// ignore self
+		if hero.Name == curName {
+			continue
+		}
 		m[hero.Name] = hero
 		keys = append(keys, hero.Name)
 	}

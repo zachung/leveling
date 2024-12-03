@@ -42,4 +42,5 @@ type Connector interface {
 	Connect(name string) bool
 	Close()
 	SendMessage(message contract.Message)
+	GetCurName() string
 }

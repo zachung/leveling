@@ -11,7 +11,8 @@ import (
 )
 
 type Connector struct {
-	conn *websocket.Conn
+	conn    *websocket.Conn
+	curName string
 }
 
 var done chan interface{}
@@ -34,6 +35,7 @@ func (c *Connector) Connect(name string) bool {
 		return false
 	}
 	c.conn = conn
+	c.curName = name
 	go receiveHandler(conn, name)
 	service.Logger().Info("Connected!\n")
 
@@ -136,4 +138,8 @@ func (c *Connector) StartTest() {
 			}
 		}
 	}
+}
+
+func (c *Connector) GetCurName() string {
+	return c.curName
 }

@@ -71,13 +71,20 @@ func (hero *Hero) attackTarget() {
 		return
 	}
 	target := (*hero.target).(*Hero)
+	if target.IsDie() {
+		hero.target = nil
+		return
+	}
 	damage := (*hero.mainHand).GetPower() + hero.strength
 	target.health -= damage
+	if target.health <= 0 {
+		target.health = 0
+	}
 	// send message to client
-	messageEvent(target, damage, hero)
+	messageEvent(hero, damage, target)
 }
 
-func messageEvent(hero *Hero, damage int, attacker *Hero) {
+func messageEvent(from *Hero, damage int, target *Hero) {
 	// TODO: event queue
 	var message string
 	// display for applied
@@ -85,18 +92,18 @@ func messageEvent(hero *Hero, damage int, attacker *Hero) {
 		Event: contract2.Event{
 			Type: contract2.StateChange,
 		},
-		Name:         hero.name,
-		Health:       hero.health,
+		Name:         target.name,
+		Health:       target.health,
 		Damage:       damage,
-		AttackerName: attacker.name,
+		AttackerName: from.name,
 	}
-	if hero.client != nil {
-		fromClient := *attacker.client
-		toClient := *hero.client
+	if target.client != nil {
+		fromClient := *from.client
+		toClient := *target.client
 		fromClient.Send(getHurtEvent)
 		toClient.Send(getHurtEvent)
-		if hero.IsDie() {
-			dieEvent := contract2.HeroDieEvent{Event: contract2.Event{Type: contract2.HeroDie}, Name: hero.name}
+		if target.IsDie() {
+			dieEvent := contract2.HeroDieEvent{Event: contract2.Event{Type: contract2.HeroDie}, Name: target.name}
 			fromClient.Send(dieEvent)
 			toClient.Send(dieEvent)
 		}
