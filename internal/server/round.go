@@ -14,7 +14,7 @@ type Round struct {
 	heroes       map[string]*contract.IHero
 	keys         map[*message.Client]*contract.IHero
 	events       chan func()
-	roundUpdated bool
+	roundChanged bool
 }
 
 func NewRound(heroes []*contract.IHero) *Round {
@@ -31,20 +31,10 @@ func NewRound(heroes []*contract.IHero) *Round {
 }
 
 func (r *Round) round(dt float64) {
-	count := len(r.heroes)
 	var wg sync.WaitGroup
-	countSurvived := count
-	var heroes []*contract.IHero
 	for _, h := range r.heroes {
-		heroes = append(heroes, h)
-	}
-	for i, h := range heroes {
-		if (*h).IsDie() {
-			countSurvived--
-			continue
-		}
 		wg.Add(1)
-		go r.attackRound(dt, &wg, heroes, h, i+1)
+		go r.updateEntity(dt, &wg, h)
 	}
 	wg.Wait()
 
@@ -53,38 +43,25 @@ func (r *Round) round(dt float64) {
 		case event := <-r.events:
 			event()
 		default:
-			if r.roundUpdated {
-				r.broadcastHeroes()
-			}
-			r.roundUpdated = false
+			r.afterRound()
 			return
 		}
 	}
 }
 
-func (r *Round) attackRound(dt float64, wg *sync.WaitGroup, heroes []*contract.IHero, self *contract.IHero, nextInx int) {
+func (r *Round) afterRound() {
+	if r.roundChanged {
+		r.broadcastHeroes()
+	}
+	r.roundChanged = false
+}
+
+func (r *Round) updateEntity(dt float64, wg *sync.WaitGroup, self *contract.IHero) {
 	defer wg.Done()
 
-	count := len(heroes)
-	if (*self).IsDie() {
-		return
-	}
 	// 選擇攻擊目標
-	for {
-		if nextInx == count {
-			nextInx = 0
-		}
-		target := heroes[nextInx]
-		if self == target {
-			return
-		}
-		if !(*target).IsDie() {
-			if (*self).Attack(dt) {
-				r.roundUpdated = true
-			}
-			break
-		}
-		nextInx++
+	if (*self).Update(dt) {
+		r.roundChanged = true
 	}
 }
 
@@ -105,7 +82,7 @@ func (r *Round) AddHero(client *contract.Client, hero *contract.IHero) {
 				Health: h.GetHealth(),
 			}
 			c.Send(event)
-			r.roundUpdated = true
+			r.roundChanged = true
 			service.Logger().Info("%s arrived, current %d.\n", h.GetName(), len(r.keys))
 		}
 	}()
@@ -118,7 +95,7 @@ func (r *Round) RemoveHero(client *contract.Client) {
 			hero := r.keys[c]
 			delete(r.heroes, (*hero).GetName())
 			delete(r.keys, c)
-			r.roundUpdated = true
+			r.roundChanged = true
 			service.Logger().Info("Bye bye %s, now %d.\n", (*hero).GetName(), len(r.keys))
 		}
 	}()

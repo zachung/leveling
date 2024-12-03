@@ -40,7 +40,10 @@ func New(data entity.Hero, client *contract.Client) *contract.IHero {
 	return &iHero
 }
 
-func (hero *Hero) Attack(dt float64) bool {
+func (hero *Hero) Update(dt float64) bool {
+	if hero.IsDie() {
+		return false
+	}
 	weapon := *hero.mainHand
 	hero.roundCooldown += dt / weapon.GetSpeed()
 	if hero.roundCooldown < ROUNT_TIME_SECOND {
