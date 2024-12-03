@@ -6,7 +6,9 @@ import (
 )
 
 var enemiesJsonData = map[string]string{
-	"Enemy": `{"name": "Enemy", "Health": 100, "Strength": 8, "mainHand": 0}`,
+	"Enemy1": `{"name": "Enemy1", "Health": 100, "Strength": 8, "mainHand": 0}`,
+	"Enemy2": `{"name": "Enemy2", "Health": 100, "Strength": 8, "mainHand": 0}`,
+	"Enemy3": `{"name": "Enemy3", "Health": 100, "Strength": 8, "mainHand": 0}`,
 }
 
 var heroJsonData = map[string]string{

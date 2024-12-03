@@ -1,7 +1,6 @@
 package hero
 
 import (
-	"fmt"
 	contract2 "leveling/internal/contract"
 	"leveling/internal/server/contract"
 	"leveling/internal/server/entity"
@@ -84,32 +83,42 @@ func (hero *Hero) attackTarget() {
 	messageEvent(hero, damage, target)
 }
 
-func messageEvent(from *Hero, damage int, target *Hero) {
+func messageEvent(from *Hero, damage int, to *Hero) {
 	// TODO: event queue
-	var message string
-	// display for applied
 	getHurtEvent := contract2.StateChangeEvent{
 		Event: contract2.Event{
 			Type: contract2.StateChange,
 		},
-		Name:         target.name,
-		Health:       target.health,
+		Name:         to.name,
+		Health:       to.health,
 		Damage:       damage,
 		AttackerName: from.name,
 	}
-	if target.client != nil {
-		fromClient := *from.client
-		toClient := *target.client
-		fromClient.Send(getHurtEvent)
-		toClient.Send(getHurtEvent)
-		if target.IsDie() {
-			dieEvent := contract2.HeroDieEvent{Event: contract2.Event{Type: contract2.HeroDie}, Name: target.name}
-			fromClient.Send(dieEvent)
-			toClient.Send(dieEvent)
-		}
+	if from.client != nil {
+		(*from.client).Send(getHurtEvent)
+	}
+	if to.client != nil {
+		(*to.client).Send(getHurtEvent)
 	} else {
-		message = fmt.Sprintf("-%v health from %s, remain %v", getHurtEvent.Damage, getHurtEvent.AttackerName, getHurtEvent.Health)
-		service.Logger().Debug(message)
+		// TODO: 分離 system entity 操作
+		hero := contract.IHero(from)
+		to.target = &hero
+		event := contract2.ActionEvent{
+			Event: contract2.Event{
+				Type: contract2.Action,
+			},
+			Id: 1,
+		}
+		to.SetNextAction(&event)
+	}
+	if to.IsDie() {
+		dieEvent := contract2.HeroDieEvent{Event: contract2.Event{Type: contract2.HeroDie}, Name: to.name}
+		if from.client != nil {
+			(*from.client).Send(dieEvent)
+		}
+		if to.client != nil {
+			(*to.client).Send(dieEvent)
+		}
 	}
 }
 
