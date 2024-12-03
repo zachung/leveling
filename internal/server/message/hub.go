@@ -59,9 +59,17 @@ func (h *Hub) Run() {
 	}
 }
 
-func (h *Hub) SendAction(client *contract.Client, action *contract2.ActionEvent) {
+func (h *Hub) SendAction(client *contract.Client, action *contract2.Message) {
 	c := (*client).(*Client)
-	h.clients[c].SetNextAction(action)
+	iHero := h.clients[c]
+	switch (*action).(type) {
+	case contract2.ActionEvent:
+		event := (*action).(contract2.ActionEvent)
+		iHero.SetNextAction(&event)
+	case contract2.SelectTargetEvent:
+		event := (*action).(contract2.SelectTargetEvent)
+		iHero.SetTarget(event.Name)
+	}
 }
 
 func (h *Hub) Broadcast(m contract2.Message) {

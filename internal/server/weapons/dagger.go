@@ -16,7 +16,3 @@ func newDagger() contract.IWeapon {
 		},
 	}
 }
-
-func (weapon dagger) Attack(hero *contract.IHero) {
-	(*hero).ApplyDamage(weapon.holder, weapon.power)
-}

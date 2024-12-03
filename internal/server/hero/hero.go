@@ -20,6 +20,8 @@ type Hero struct {
 	roundCooldown float64 // weapon auto attack cooldown
 	client        *contract.Client
 	nextAction    *contract2.ActionEvent
+	target        *contract.IHero
+	round         *contract.Round
 }
 
 func New(data entity.Hero, client *contract.Client) *contract.IHero {
@@ -38,7 +40,7 @@ func New(data entity.Hero, client *contract.Client) *contract.IHero {
 	return &iHero
 }
 
-func (hero *Hero) Attack(dt float64, targets []*contract.IHero) bool {
+func (hero *Hero) Attack(dt float64) bool {
 	weapon := *hero.mainHand
 	hero.roundCooldown += dt / weapon.GetSpeed()
 	if hero.roundCooldown < ROUNT_TIME_SECOND {
@@ -52,7 +54,7 @@ func (hero *Hero) Attack(dt float64, targets []*contract.IHero) bool {
 		return false
 	} else {
 		for rounds := int64(roundTime / ROUNT_TIME_SECOND); rounds > 0; rounds-- {
-			weapon.Attack(targets[0])
+			hero.attackTarget()
 		}
 		hero.nextAction = nil
 		hero.roundCooldown = math.Mod(roundTime, ROUNT_TIME_SECOND)
@@ -61,12 +63,15 @@ func (hero *Hero) Attack(dt float64, targets []*contract.IHero) bool {
 	}
 }
 
-func (hero *Hero) ApplyDamage(from *contract.IHero, power int) {
-	attacker := (*from).(*Hero)
-	damage := power + attacker.strength
-	hero.health -= damage
+func (hero *Hero) attackTarget() {
+	if hero.target == nil {
+		return
+	}
+	target := (*hero.target).(*Hero)
+	damage := (*hero.mainHand).GetPower() + hero.strength
+	target.health -= damage
 	// send message to client
-	messageEvent(hero, damage, attacker)
+	messageEvent(target, damage, hero)
 }
 
 func messageEvent(hero *Hero, damage int, attacker *Hero) {
@@ -113,4 +118,12 @@ func (hero *Hero) GetName() string {
 
 func (hero *Hero) GetHealth() int {
 	return hero.health
+}
+
+func (hero *Hero) SetTarget(name string) {
+	hero.target = (*hero.round).GetHero(name)
+}
+
+func (hero *Hero) SetRound(round *contract.Round) {
+	hero.round = round
 }

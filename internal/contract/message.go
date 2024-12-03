@@ -36,3 +36,8 @@ type WorldEvent struct {
 	Event  `json:"event,omitempty"`
 	Heroes []Hero `json:"heroes,omitempty"`
 }
+
+type SelectTargetEvent struct {
+	Event `json:"event,omitempty"`
+	Name  string `json:"name,omitempty"`
+}

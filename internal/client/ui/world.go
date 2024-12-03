@@ -20,12 +20,23 @@ func newWorld(app *tview.Application) *World {
 		SetBorder(true)
 	textView.ShowSecondaryText(false)
 	textView.SetSelectedFunc(func(i int, s string, s2 string, r rune) {
-		service.Logger().Info("Selected %s\n", s)
-		// TODO: send select target event to server
+		service.Logger().Info("Selected %s\n", s2)
+		// send select target event to server
+		selectTarget(s2)
 		service.UI().Report().Focus()
 	})
 
 	return &World{textView, app}
+}
+
+func selectTarget(name string) {
+	event := contract.SelectTargetEvent{
+		Event: contract.Event{
+			Type: contract.SelectTarget,
+		},
+		Name: name,
+	}
+	service.Controller().Send(event)
 }
 
 func (s *World) UpdateWorld(event contract.WorldEvent) {
@@ -58,6 +69,7 @@ func (s *World) UpdateWorld(event contract.WorldEvent) {
 	if curInx != 0 {
 		s.textView.SetCurrentItem(curInx)
 	}
+	s.app.Draw()
 }
 
 func (s *World) Focus() {

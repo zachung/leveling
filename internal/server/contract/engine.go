@@ -8,6 +8,10 @@ type Server interface {
 	LeaveClientConnect(client *Client)
 }
 
+type Round interface {
+	GetHero(name string) *IHero
+}
+
 type Console interface {
 	Info(msg string, args ...any)
 	Debug(msg string, args ...any)
@@ -22,6 +26,6 @@ type Client interface {
 
 type Hub interface {
 	Run()
-	SendAction(client *Client, action *contract2.ActionEvent)
+	SendAction(client *Client, action *contract2.Message)
 	Broadcast(m contract2.Message)
 }

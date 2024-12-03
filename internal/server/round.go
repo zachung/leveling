@@ -11,16 +11,16 @@ import (
 
 type Round struct {
 	isDone       bool
-	heroes       map[*contract.IHero]bool
+	heroes       map[string]*contract.IHero
 	keys         map[*message.Client]*contract.IHero
 	events       chan func()
 	roundUpdated bool
 }
 
 func NewRound(heroes []*contract.IHero) *Round {
-	h := map[*contract.IHero]bool{}
+	h := map[string]*contract.IHero{}
 	for _, hero := range heroes {
-		h[hero] = false
+		h[(*hero).GetName()] = hero
 	}
 
 	return &Round{
@@ -35,7 +35,7 @@ func (r *Round) round(dt float64) {
 	var wg sync.WaitGroup
 	countSurvived := count
 	var heroes []*contract.IHero
-	for h := range r.heroes {
+	for _, h := range r.heroes {
 		heroes = append(heroes, h)
 	}
 	for i, h := range heroes {
@@ -79,7 +79,7 @@ func (r *Round) attackRound(dt float64, wg *sync.WaitGroup, heroes []*contract.I
 			return
 		}
 		if !(*target).IsDie() {
-			if (*self).Attack(dt, []*contract.IHero{target}) {
+			if (*self).Attack(dt) {
 				r.roundUpdated = true
 			}
 			break
@@ -92,10 +92,11 @@ func (r *Round) AddHero(client *contract.Client, hero *contract.IHero) {
 	c := (*client).(*message.Client)
 	go func() {
 		r.events <- func() {
-			r.keys[c] = hero
-			r.heroes[hero] = false
-			//service.Hub().Broadcast([]byte(fmt.Sprintf("%s joined!", (*hero).GetName())))
 			h := (*hero).(*hero2.Hero)
+			round := contract.Round(r)
+			h.SetRound(&round)
+			r.keys[c] = hero
+			r.heroes[h.GetName()] = hero
 			event := contract2.StateChangeEvent{
 				Event: contract2.Event{
 					Type: contract2.StateChange,
@@ -115,7 +116,7 @@ func (r *Round) RemoveHero(client *contract.Client) {
 	go func() {
 		r.events <- func() {
 			hero := r.keys[c]
-			delete(r.heroes, hero)
+			delete(r.heroes, (*hero).GetName())
 			delete(r.keys, c)
 			r.roundUpdated = true
 			service.Logger().Info("Bye bye %s, now %d.\n", (*hero).GetName(), len(r.keys))
@@ -125,7 +126,7 @@ func (r *Round) RemoveHero(client *contract.Client) {
 
 func (r *Round) broadcastHeroes() {
 	var heroes []contract2.Hero
-	for hero := range r.heroes {
+	for _, hero := range r.heroes {
 		h := (*hero).(*hero2.Hero)
 		heroes = append(heroes, contract2.Hero{h.GetName(), h.GetHealth()})
 	}
@@ -137,4 +138,8 @@ func (r *Round) broadcastHeroes() {
 		Heroes: heroes,
 	}
 	service.Hub().Broadcast(event)
+}
+
+func (r *Round) GetHero(name string) *contract.IHero {
+	return r.heroes[name]
 }

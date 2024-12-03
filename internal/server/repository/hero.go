@@ -5,7 +5,9 @@ import (
 	"leveling/internal/server/entity"
 )
 
-var enemiesJsonData = map[string]string{}
+var enemiesJsonData = map[string]string{
+	"Enemy": `{"name": "Enemy", "Health": 100, "Strength": 8, "mainHand": 0}`,
+}
 
 var heroJsonData = map[string]string{
 	"Taras": `{"name": "Taras", "Health": 100, "Strength": 8, "mainHand": 2}`,

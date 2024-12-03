@@ -67,12 +67,8 @@ func (c *Client) readPump() {
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
 		action := contract.UnSerialize(message)
 		service.Logger().Info("%+v\n", action)
-		switch action.(type) {
-		case contract.ActionEvent:
-			client := contract2.Client(c)
-			c2 := action.(contract.ActionEvent)
-			service.Hub().SendAction(&client, &c2)
-		}
+		client := contract2.Client(c)
+		service.Hub().SendAction(&client, &action)
 	}
 }
 

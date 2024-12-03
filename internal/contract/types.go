@@ -12,6 +12,7 @@ const (
 	HeroDie
 	Action
 	World
+	SelectTarget
 )
 
 func (e Event) GetType() MessageType {
@@ -44,6 +45,10 @@ func UnSerialize(bytes []byte) Message {
 		return message
 	case World:
 		var message WorldEvent
+		json.Unmarshal(bytes, &message)
+		return message
+	case SelectTarget:
+		var message SelectTargetEvent
 		json.Unmarshal(bytes, &message)
 		return message
 	default:
