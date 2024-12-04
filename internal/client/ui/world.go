@@ -19,8 +19,7 @@ func newWorld(app *tview.Application) *World {
 		SetTitleAlign(tview.AlignLeft).
 		SetBorder(true)
 	textView.ShowSecondaryText(false)
-	textView.SetSelectedFunc(func(i int, s string, s2 string, r rune) {
-		service.Logger().Info("Selected %s\n", s2)
+	textView.SetChangedFunc(func(i int, s string, s2 string, r rune) {
 		// send select target event to server
 		selectTarget(s2)
 		service.UI().Report().Focus()
@@ -41,6 +40,10 @@ func selectTarget(name string) {
 
 func (s *World) UpdateWorld(event contract.WorldEvent) {
 	heroes := event.Heroes
+	if len(heroes) == 0 {
+		s.textView.Clear()
+		return
+	}
 	// sort
 	m := make(map[string]contract.Hero)
 	keys := make([]string, 0, len(heroes))
@@ -70,9 +73,7 @@ func (s *World) UpdateWorld(event contract.WorldEvent) {
 		mainText := fmt.Sprintf("%s(%d)", name, m[k].Health)
 		s.textView.AddItem(mainText, name, rune('1'+i), nil)
 	}
-	if curInx != 0 {
-		s.textView.SetCurrentItem(curInx)
-	}
+	s.textView.SetCurrentItem(curInx)
 	s.app.Draw()
 }
 
@@ -86,6 +87,4 @@ func (s *World) SelectNext() {
 		index = 0
 	}
 	s.textView.SetCurrentItem(index)
-	main, secondary := s.textView.GetItemText(s.textView.GetCurrentItem())
-	s.textView.GetSelectedFunc()(index, main, secondary, 'a')
 }

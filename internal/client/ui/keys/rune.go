@@ -20,10 +20,14 @@ func NewRune(next Func) *Rune {
 
 func (c Rune) handleEvent(event *tcell.EventKey) *tcell.EventKey {
 	if event.Key() == tcell.KeyRune {
-		spell := contract2.ActionEvent{Event: contract2.Event{Type: contract2.Action}, Id: 1}
+		spell := contract2.ActionEvent{Event: contract2.Event{Type: contract2.Action}}
 
 		switch event.Rune() {
 		case '1':
+			spell.Id = 1
+			service.Controller().Send(spell)
+		case '2':
+			spell.Id = 2
 			service.Controller().Send(spell)
 		case 's':
 			service.Controller().Connect("Sin")

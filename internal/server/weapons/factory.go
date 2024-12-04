@@ -10,10 +10,6 @@ type Weapon struct {
 	holder *contract.IHero
 }
 
-func (weapon *Weapon) SetHolder(hero *contract.IHero) {
-	weapon.holder = hero
-}
-
 func (weapon *Weapon) GetSpeed() float64 {
 	return weapon.speed
 }

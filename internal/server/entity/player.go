@@ -26,6 +26,7 @@ type Hero struct {
 	round          *contract.Round
 	subject        *contract.Subject
 	isActive       bool
+	isAutoAttack   bool
 }
 
 func New(data dao.Hero, client *contract.Client) *contract.IHero {
@@ -39,7 +40,6 @@ func New(data dao.Hero, client *contract.Client) *contract.IHero {
 		client:        client,
 	}
 	iHero := contract.IHero(hero)
-	weapon.SetHolder(&iHero)
 
 	return &iHero
 }
@@ -68,11 +68,15 @@ func (hero *Hero) roundAutoAttack(dt float64) {
 }
 
 func (hero *Hero) doAutoAttack() {
+	if !hero.isAutoAttack {
+		return
+	}
 	if hero.target == nil {
 		return
 	}
 	target := (*hero.target).(*Hero)
 	if target.IsDie() {
+		hero.isAutoAttack = false
 		hero.target = nil
 		return
 	}
@@ -119,14 +123,11 @@ func (hero *Hero) doAction() {
 
 func messageEvent(from *Hero, damage contract.Damage, to *Hero) {
 	// TODO: event queue
-	getHurtEvent := contract2.StateChangeEvent{
-		Event: contract2.Event{
-			Type: contract2.StateChange,
-		},
-		Name:         to.name,
-		Health:       to.health,
-		Damage:       int(damage),
-		AttackerName: from.name,
+	getHurtEvent := to.getCurrentState()
+	getHurtEvent.Damage = int(damage)
+	getHurtEvent.Attacker = contract2.Hero{
+		Name:   from.name,
+		Health: from.health,
 	}
 	if from.client != nil {
 		(*from.client).Send(getHurtEvent)
@@ -153,8 +154,17 @@ func (hero *Hero) IsDie() bool {
 }
 
 func (hero *Hero) SetNextAction(action *contract2.ActionEvent) {
-	hero.nextAction = action
-	service.Logger().Debug("%s %+v\n", hero.name, action)
+	switch action.Id {
+	case 1:
+		hero.isAutoAttack = !hero.isAutoAttack
+		event := hero.getCurrentState()
+		if hero.client != nil {
+			(*hero.client).Send(event)
+		}
+	case 2:
+		hero.nextAction = action
+		service.Logger().Debug("%s %+v\n", hero.name, action)
+	}
 }
 
 func (hero *Hero) GetName() string {
@@ -186,4 +196,24 @@ func (hero *Hero) SetSubject(subject *contract.Subject) {
 
 func (hero *Hero) Subject() contract.Subject {
 	return *hero.subject
+}
+
+func (hero *Hero) getCurrentState() contract2.StateChangeEvent {
+	event := contract2.StateChangeEvent{
+		Event: contract2.Event{
+			Type: contract2.StateChange,
+		},
+		Name:         hero.name,
+		Health:       hero.health,
+		IsAutoAttack: hero.isAutoAttack,
+	}
+	if hero.target != nil {
+		target := *hero.target
+		event.Target = contract2.Hero{
+			Name:   target.GetName(),
+			Health: target.GetHealth(),
+		}
+	}
+
+	return event
 }

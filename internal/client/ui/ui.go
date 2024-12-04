@@ -27,7 +27,7 @@ func NewUi() *contract.UI {
 	grid := tview.NewGrid().
 		SetRows(-2, -2, -2).
 		SetColumns(-3, 0).
-		AddItem(state.textView, 0, 0, 1, 1, 0, 0, false).
+		AddItem(state.view, 0, 0, 1, 1, 0, 0, false).
 		AddItem(world.textView, 0, 1, 2, 1, 0, 0, false).
 		AddItem(sideView, 2, 1, 1, 1, 0, 0, false).
 		AddItem(report.textView, 1, 0, 2, 1, 0, 0, false)

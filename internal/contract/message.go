@@ -18,8 +18,10 @@ type StateChangeEvent struct {
 	Event        `json:"event,omitempty"`
 	Name         string `json:"name"`
 	Health       int    `json:"health"`
+	IsAutoAttack bool   `json:"isAutoAttack"`
 	Damage       int    `json:"damage,omitempty"`
-	AttackerName string `json:"attacker_name,omitempty"`
+	Target       Hero   `json:"target,omitempty"`
+	Attacker     Hero   `json:"attacker,omitempty"`
 }
 
 type HeroDieEvent struct {

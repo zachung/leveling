@@ -55,10 +55,10 @@ func receiveHandler(connection *websocket.Conn, name string) {
 			event := unSerialize.(contract2.StateChangeEvent)
 			var message string
 			if event.Name == name {
-				if event.AttackerName != "" {
+				if event.Attacker.Name != "" {
 					message = fmt.Sprintf("[red]-%v health[white] from [::u]%s[::U], remain %v\n",
 						event.Damage,
-						event.AttackerName,
+						event.Attacker.Name,
 						event.Health,
 					)
 				}
