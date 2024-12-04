@@ -29,7 +29,7 @@ type Panel interface {
 type World interface {
 	Panel
 	UpdateWorld(event contract.WorldEvent)
-	SelectTarget(index int)
+	SelectNext()
 }
 
 type Controller interface {

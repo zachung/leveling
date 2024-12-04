@@ -80,6 +80,12 @@ func (s *World) Focus() {
 	s.app.SetFocus(s.textView)
 }
 
-func (s *World) SelectTarget(index int) {
+func (s *World) SelectNext() {
+	index := s.textView.GetCurrentItem() + 1
+	if index >= s.textView.GetItemCount() {
+		index = 0
+	}
 	s.textView.SetCurrentItem(index)
+	main, secondary := s.textView.GetItemText(s.textView.GetCurrentItem())
+	s.textView.GetSelectedFunc()(index, main, secondary, 'a')
 }

@@ -24,7 +24,7 @@ func handleGlobalKeys(event *tcell.EventKey) *tcell.EventKey {
 }
 
 func handleReportKeys(event *tcell.EventKey) *tcell.EventKey {
-	return (*keys.NewRune(nil)).Execute(event)
+	return (*keys.NewRune(keys.NewSwitchTarget(nil))).Execute(event)
 }
 
 func (c *Controller) Connect(name string) {
