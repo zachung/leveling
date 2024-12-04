@@ -21,6 +21,7 @@ type Hero struct {
 	nextAction    *contract2.ActionEvent
 	target        *contract.IHero
 	round         *contract.Round
+	subject       *contract.Subject
 }
 
 func New(data dao.Hero, client *contract.Client) *contract.IHero {
@@ -99,17 +100,9 @@ func messageEvent(from *Hero, damage contract.Damage, to *Hero) {
 	}
 	if to.client != nil {
 		(*to.client).Send(getHurtEvent)
-	} else {
-		// TODO: 分離 system entity 操作
-		hero := contract.IHero(from)
-		to.target = &hero
-		event := contract2.ActionEvent{
-			Event: contract2.Event{
-				Type: contract2.Action,
-			},
-			Id: 1,
-		}
-		to.SetNextAction(&event)
+	}
+	if to.subject != nil {
+		(*to.subject).Notify(to, getHurtEvent)
 	}
 	if to.IsDie() {
 		dieEvent := contract2.HeroDieEvent{Event: contract2.Event{Type: contract2.HeroDie}, Name: to.name}
@@ -149,4 +142,12 @@ func (hero *Hero) SetRound(round *contract.Round) {
 
 func (hero *Hero) ApplyDamage(damage contract.Damage) {
 	hero.health -= int(damage)
+}
+
+func (hero *Hero) SetSubject(subject *contract.Subject) {
+	hero.subject = subject
+}
+
+func (hero *Hero) Subject() contract.Subject {
+	return *hero.subject
 }

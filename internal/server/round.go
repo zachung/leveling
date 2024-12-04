@@ -5,6 +5,7 @@ import (
 	"leveling/internal/server/connection"
 	"leveling/internal/server/contract"
 	hero2 "leveling/internal/server/entity"
+	"leveling/internal/server/observers"
 	"leveling/internal/server/service"
 	"sync"
 )
@@ -18,16 +19,24 @@ type Round struct {
 }
 
 func NewRound(heroes []*contract.IHero) *Round {
-	h := map[string]*contract.IHero{}
-	for _, hero := range heroes {
-		h[(*hero).GetName()] = hero
-	}
-
-	return &Round{
-		heroes: h,
+	r := &Round{
+		heroes: map[string]*contract.IHero{},
 		keys:   make(map[*connection.Client]*contract.IHero),
 		events: make(chan func()),
 	}
+	round := contract.Round(r)
+
+	subject := contract.Subject(&hero2.Subject{})
+	hurt := contract.Observer(observers.GetHurt{})
+	subject.AddObserver(&hurt)
+	for _, hero := range heroes {
+		iHero := *hero
+		iHero.SetSubject(&subject)
+		iHero.SetRound(&round)
+		r.heroes[iHero.GetName()] = hero
+	}
+
+	return r
 }
 
 func (r *Round) round(dt float64) {

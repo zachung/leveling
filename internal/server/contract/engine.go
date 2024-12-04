@@ -29,3 +29,12 @@ type Hub interface {
 	SendAction(client *Client, action *contract2.Message)
 	Broadcast(m contract2.Message)
 }
+
+type Observer interface {
+	OnNotify(hero IHero, event contract2.Message)
+}
+
+type Subject interface {
+	AddObserver(observer *Observer)
+	Notify(hero IHero, event contract2.Message)
+}

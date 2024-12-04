@@ -13,4 +13,6 @@ type IHero interface {
 	SetTarget(name string)
 	SetRound(round *Round)
 	ApplyDamage(damage Damage)
+	SetSubject(subject *Subject)
+	Subject() Subject
 }
