@@ -2,9 +2,9 @@ package server
 
 import (
 	"io"
+	"leveling/internal/server/connection"
 	"leveling/internal/server/contract"
-	"leveling/internal/server/hero"
-	"leveling/internal/server/message"
+	"leveling/internal/server/entity"
 	"leveling/internal/server/repository"
 	"leveling/internal/server/service"
 	"leveling/internal/server/utils"
@@ -70,16 +70,16 @@ func (s *Server) gameInitial() {
 
 	// listen for client
 	go func() {
-		hub := message.NewHub()
+		hub := connection.NewHub()
 		locator.SetHub(hub)
 		go (*hub).Run()
-		message.NewMessenger()
+		connection.NewMessenger()
 		service.Logger().Info("Listening for client\n")
 	}()
 
 	var heroes []*contract.IHero
 	for _, data := range repository.GetHeroData() {
-		heroes = append(heroes, hero.New(data, nil))
+		heroes = append(heroes, entity.New(data, nil))
 	}
 	s.round = NewRound(heroes)
 }
@@ -125,7 +125,7 @@ func (s *Server) Stop() {
 func (s *Server) NewClientConnect(client *contract.Client) *contract.IHero {
 	c := *client
 	data := repository.GetHeroByName(c.GetName())
-	newHero := hero.New(data, client)
+	newHero := entity.New(data, client)
 	s.round.AddHero(client, newHero)
 
 	return newHero

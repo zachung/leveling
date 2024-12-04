@@ -2,7 +2,7 @@ package repository
 
 import (
 	"encoding/json"
-	"leveling/internal/server/entity"
+	"leveling/internal/server/repository/dao"
 )
 
 var enemiesJsonData = map[string]string{
@@ -17,9 +17,9 @@ var heroJsonData = map[string]string{
 	"Brian": `{"name": "Brian", "Health": 100, "Strength": 6, "mainHand": 0}`,
 }
 
-func GetHeroData() (heroesEntity []entity.Hero) {
+func GetHeroData() (heroesEntity []dao.Hero) {
 	for _, jsonDatum := range enemiesJsonData {
-		data := entity.Hero{}
+		data := dao.Hero{}
 		err := json.Unmarshal([]byte(jsonDatum), &data)
 		if err != nil {
 			panic(err)
@@ -29,8 +29,8 @@ func GetHeroData() (heroesEntity []entity.Hero) {
 	return
 }
 
-func GetHeroByName(name string) (heroEntity entity.Hero) {
-	data := entity.Hero{}
+func GetHeroByName(name string) (heroEntity dao.Hero) {
+	data := dao.Hero{}
 	json.Unmarshal([]byte(heroJsonData[name]), &data)
 
 	return data

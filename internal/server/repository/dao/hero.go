@@ -1,4 +1,4 @@
-package entity
+package dao
 
 type Hero struct {
 	ID       int64  `json:"id"`

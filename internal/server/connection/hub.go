@@ -1,4 +1,4 @@
-package message
+package connection
 
 import (
 	contract2 "leveling/internal/contract"

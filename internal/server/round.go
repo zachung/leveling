@@ -2,9 +2,9 @@ package server
 
 import (
 	contract2 "leveling/internal/contract"
+	"leveling/internal/server/connection"
 	"leveling/internal/server/contract"
-	hero2 "leveling/internal/server/hero"
-	"leveling/internal/server/message"
+	hero2 "leveling/internal/server/entity"
 	"leveling/internal/server/service"
 	"sync"
 )
@@ -12,7 +12,7 @@ import (
 type Round struct {
 	isDone       bool
 	heroes       map[string]*contract.IHero
-	keys         map[*message.Client]*contract.IHero
+	keys         map[*connection.Client]*contract.IHero
 	events       chan func()
 	roundChanged bool
 }
@@ -25,7 +25,7 @@ func NewRound(heroes []*contract.IHero) *Round {
 
 	return &Round{
 		heroes: h,
-		keys:   make(map[*message.Client]*contract.IHero),
+		keys:   make(map[*connection.Client]*contract.IHero),
 		events: make(chan func()),
 	}
 }
@@ -66,7 +66,7 @@ func (r *Round) updateEntity(dt float64, wg *sync.WaitGroup, self *contract.IHer
 }
 
 func (r *Round) AddHero(client *contract.Client, hero *contract.IHero) {
-	c := (*client).(*message.Client)
+	c := (*client).(*connection.Client)
 	go func() {
 		r.events <- func() {
 			h := (*hero).(*hero2.Hero)
@@ -89,7 +89,7 @@ func (r *Round) AddHero(client *contract.Client, hero *contract.IHero) {
 }
 
 func (r *Round) RemoveHero(client *contract.Client) {
-	c := (*client).(*message.Client)
+	c := (*client).(*connection.Client)
 	go func() {
 		r.events <- func() {
 			hero := r.keys[c]

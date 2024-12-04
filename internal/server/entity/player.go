@@ -1,9 +1,9 @@
-package hero
+package entity
 
 import (
 	contract2 "leveling/internal/contract"
 	"leveling/internal/server/contract"
-	"leveling/internal/server/entity"
+	"leveling/internal/server/repository/dao"
 	"leveling/internal/server/service"
 	"leveling/internal/server/weapons"
 	"math"
@@ -23,7 +23,7 @@ type Hero struct {
 	round         *contract.Round
 }
 
-func New(data entity.Hero, client *contract.Client) *contract.IHero {
+func New(data dao.Hero, client *contract.Client) *contract.IHero {
 	weapon := weapons.NewWeapon(data.MainHand)
 	hero := &Hero{
 		name:          data.Name,
