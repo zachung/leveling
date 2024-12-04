@@ -6,22 +6,26 @@ import (
 	"leveling/internal/server/repository/dao"
 	"leveling/internal/server/service"
 	"leveling/internal/server/weapons"
-	"math"
 )
 
-const ROUNT_TIME_SECOND = 1
+const (
+	roundTimeSecond = 1
+	globalCoolDown  = 1.5
+)
 
 type Hero struct {
-	name          string
-	health        int
-	strength      int
-	mainHand      *contract.IWeapon
-	roundCooldown float64 // weapon auto attack cooldown
-	client        *contract.Client
-	nextAction    *contract2.ActionEvent
-	target        *contract.IHero
-	round         *contract.Round
-	subject       *contract.Subject
+	name           string
+	health         int
+	strength       int
+	mainHand       *contract.IWeapon
+	attackCooldown float64 // weapon auto attack cooldown
+	roundCooldown  float64
+	client         *contract.Client
+	nextAction     *contract2.ActionEvent
+	target         *contract.IHero
+	round          *contract.Round
+	subject        *contract.Subject
+	isActive       bool
 }
 
 func New(data dao.Hero, client *contract.Client) *contract.IHero {
@@ -41,32 +45,29 @@ func New(data dao.Hero, client *contract.Client) *contract.IHero {
 }
 
 func (hero *Hero) Update(dt float64) bool {
+	hero.isActive = false
 	if hero.IsDie() {
 		return false
 	}
+	hero.roundAutoAttack(dt)
+	hero.roundAction(dt)
+
+	return hero.isActive
+}
+
+func (hero *Hero) roundAutoAttack(dt float64) {
 	weapon := *hero.mainHand
-	hero.roundCooldown += dt / weapon.GetSpeed()
-	if hero.roundCooldown < ROUNT_TIME_SECOND {
-		return false
-	}
-	roundTime := hero.roundCooldown
-	if hero.nextAction == nil {
-		// 下次可以直接動作
-		hero.roundCooldown = ROUNT_TIME_SECOND
-
-		return false
-	} else {
-		for rounds := int64(roundTime / ROUNT_TIME_SECOND); rounds > 0; rounds-- {
-			hero.attackTarget()
+	hero.attackCooldown += dt / weapon.GetSpeed()
+	for {
+		if hero.attackCooldown < roundTimeSecond {
+			return
 		}
-		hero.nextAction = nil
-		hero.roundCooldown = math.Mod(roundTime, ROUNT_TIME_SECOND)
-
-		return true
+		hero.attackCooldown -= roundTimeSecond
+		hero.doAutoAttack()
 	}
 }
 
-func (hero *Hero) attackTarget() {
+func (hero *Hero) doAutoAttack() {
 	if hero.target == nil {
 		return
 	}
@@ -75,11 +76,43 @@ func (hero *Hero) attackTarget() {
 		hero.target = nil
 		return
 	}
+	hero.isActive = true
+	damage := contract.Damage((*hero.mainHand).GetPower())
+	target.ApplyDamage(damage)
+	// send message to client
+	messageEvent(hero, damage, target)
+}
+
+func (hero *Hero) roundAction(dt float64) {
+	hero.roundCooldown += dt
+	for {
+		if hero.roundCooldown < globalCoolDown {
+			return
+		}
+		if hero.nextAction == nil {
+			return
+		}
+		hero.roundCooldown -= globalCoolDown
+		hero.doAction()
+	}
+}
+
+func (hero *Hero) doAction() {
+	defer func() {
+		hero.nextAction = nil
+	}()
+
+	if hero.target == nil {
+		return
+	}
+	target := (*hero.target).(*Hero)
+	if target.IsDie() {
+		hero.target = nil
+		return
+	}
+	hero.isActive = true
 	damage := contract.Damage((*hero.mainHand).GetPower() + hero.strength)
 	target.ApplyDamage(damage)
-	if target.health <= 0 {
-		target.health = 0
-	}
 	// send message to client
 	messageEvent(hero, damage, target)
 }
@@ -142,6 +175,9 @@ func (hero *Hero) SetRound(round *contract.Round) {
 
 func (hero *Hero) ApplyDamage(damage contract.Damage) {
 	hero.health -= int(damage)
+	if hero.health <= 0 {
+		hero.health = 0
+	}
 }
 
 func (hero *Hero) SetSubject(subject *contract.Subject) {

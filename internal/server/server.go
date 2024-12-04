@@ -28,7 +28,7 @@ func NewServer() *contract.Server {
 	var server contract.Server
 	server = &Server{
 		lastTime: utils.Now(),
-		speed:    4,
+		speed:    1,
 		stopChan: make(chan bool),
 	}
 
@@ -95,18 +95,12 @@ func (s *Server) gameLoop() {
 	}()
 
 	for {
-		var roundDt int32
-		if dt > MaxDtMs {
-			dt -= MaxDtMs
-			roundDt = MaxDtMs
-		} else {
+		if dt < MaxDtMs {
 			time.Sleep(time.Duration(MaxDtMs-dt) * time.Millisecond)
 			return
 		}
-		s.gameUpdate(float64(dt) / 1000)
-		if roundDt == dt {
-			break
-		}
+		dt -= MaxDtMs
+		s.gameUpdate(float64(MaxDtMs) / 1000)
 	}
 }
 
