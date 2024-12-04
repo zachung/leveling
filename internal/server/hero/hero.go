@@ -74,8 +74,8 @@ func (hero *Hero) attackTarget() {
 		hero.target = nil
 		return
 	}
-	damage := (*hero.mainHand).GetPower() + hero.strength
-	target.health -= damage
+	damage := contract.Damage((*hero.mainHand).GetPower() + hero.strength)
+	target.ApplyDamage(damage)
 	if target.health <= 0 {
 		target.health = 0
 	}
@@ -83,7 +83,7 @@ func (hero *Hero) attackTarget() {
 	messageEvent(hero, damage, target)
 }
 
-func messageEvent(from *Hero, damage int, to *Hero) {
+func messageEvent(from *Hero, damage contract.Damage, to *Hero) {
 	// TODO: event queue
 	getHurtEvent := contract2.StateChangeEvent{
 		Event: contract2.Event{
@@ -91,7 +91,7 @@ func messageEvent(from *Hero, damage int, to *Hero) {
 		},
 		Name:         to.name,
 		Health:       to.health,
-		Damage:       damage,
+		Damage:       int(damage),
 		AttackerName: from.name,
 	}
 	if from.client != nil {
@@ -145,4 +145,8 @@ func (hero *Hero) SetTarget(name string) {
 
 func (hero *Hero) SetRound(round *contract.Round) {
 	hero.round = round
+}
+
+func (hero *Hero) ApplyDamage(damage contract.Damage) {
+	hero.health -= int(damage)
 }

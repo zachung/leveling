@@ -2,6 +2,8 @@ package contract
 
 import contract2 "leveling/internal/contract"
 
+type Damage int
+
 type IHero interface {
 	Update(dt float64) bool
 	IsDie() bool
@@ -10,4 +12,5 @@ type IHero interface {
 	GetHealth() int
 	SetTarget(name string)
 	SetRound(round *Round)
+	ApplyDamage(damage Damage)
 }
