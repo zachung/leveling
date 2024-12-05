@@ -71,6 +71,12 @@ func (s *World) UpdateWorld(event contract.WorldEvent) {
 			curInx = i
 		}
 		mainText := fmt.Sprintf("%s(%d)", name, m[k].Health)
+		if m[k].Target != nil {
+			if m[k].Target.Name == curName {
+				// you are the target
+				mainText += "⚔️"
+			}
+		}
 		s.textView.AddItem(mainText, name, rune('1'+i), nil)
 	}
 	s.textView.SetCurrentItem(curInx)

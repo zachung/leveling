@@ -179,6 +179,10 @@ func (hero *Hero) SetTarget(name string) {
 	hero.target = (*hero.round).GetHero(name)
 }
 
+func (hero *Hero) GetTarget() *contract.IHero {
+	return hero.target
+}
+
 func (hero *Hero) SetRound(round *contract.Round) {
 	hero.round = round
 }
@@ -216,4 +220,8 @@ func (hero *Hero) getCurrentState() contract2.StateChangeEvent {
 	}
 
 	return event
+}
+
+func (hero *Hero) SetAutoAttack(isAutoAttack bool) {
+	hero.isAutoAttack = isAutoAttack
 }

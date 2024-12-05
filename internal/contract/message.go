@@ -32,6 +32,7 @@ type HeroDieEvent struct {
 type Hero struct {
 	Name   string `json:"name"`
 	Health int    `json:"health"`
+	Target *Hero  `json:"target,omitempty"`
 }
 
 type WorldEvent struct {

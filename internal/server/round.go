@@ -114,7 +114,18 @@ func (r *Round) broadcastHeroes() {
 	var heroes []contract2.Hero
 	for _, hero := range r.heroes {
 		h := (*hero).(*hero2.Hero)
-		heroes = append(heroes, contract2.Hero{h.GetName(), h.GetHealth()})
+		elems := contract2.Hero{
+			Name:   h.GetName(),
+			Health: h.GetHealth(),
+		}
+		target := h.GetTarget()
+		if target != nil {
+			elems.Target = &contract2.Hero{
+				Name:   (*target).GetName(),
+				Health: (*target).GetHealth(),
+			}
+		}
+		heroes = append(heroes, elems)
 	}
 
 	event := contract2.WorldEvent{

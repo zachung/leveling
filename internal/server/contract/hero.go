@@ -11,8 +11,10 @@ type IHero interface {
 	GetName() string
 	GetHealth() int
 	SetTarget(name string)
+	GetTarget() *IHero
 	SetRound(round *Round)
 	ApplyDamage(damage Damage)
 	SetSubject(subject *Subject)
 	Subject() Subject
+	SetAutoAttack(isAutoAttack bool)
 }
