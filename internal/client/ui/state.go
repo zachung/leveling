@@ -11,6 +11,8 @@ import (
 type SkillView struct {
 	grid   *tview.Grid
 	skill1 *tview.TextView
+	skill2 *tview.TextView
+	skill3 *tview.TextView
 }
 
 type State struct {
@@ -52,16 +54,26 @@ func newSkillView() *SkillView {
 	skill1 := tview.NewTextView().
 		SetText("１").
 		SetDynamicColors(true)
+	skill2 := tview.NewTextView().
+		SetText("２").
+		SetDynamicColors(true)
+	skill3 := tview.NewTextView().
+		SetText("３").
+		SetDynamicColors(true)
 
 	grid := tview.NewGrid().
 		SetRows(-1, 1).
-		SetColumns(2).
-		AddItem(skill1, 1, 0, 1, 1, 0, 0, false)
+		SetColumns(2, 2, 2, -1).
+		AddItem(skill1, 1, 0, 1, 1, 0, 0, false).
+		AddItem(skill2, 1, 1, 1, 1, 0, 0, false).
+		AddItem(skill3, 1, 2, 1, 1, 0, 0, false)
 	grid.SetBackgroundColor(tcell.ColorRed)
 
 	return &SkillView{
 		grid:   grid,
 		skill1: skill1,
+		skill2: skill2,
+		skill3: skill3,
 	}
 }
 
@@ -82,6 +94,13 @@ func (s *State) UpdateState(event contract.StateChangeEvent) {
 		s.skillView.skill1.SetBackgroundColor(tcell.ColorRed)
 	} else {
 		s.skillView.skill1.SetBackgroundColor(tcell.ColorBlack)
+	}
+
+	// auto attack
+	if event.Action.Id == 2 {
+		s.skillView.skill2.SetBackgroundColor(tcell.ColorRed)
+	} else {
+		s.skillView.skill2.SetBackgroundColor(tcell.ColorBlack)
 	}
 	// target
 	s.targetView.SetText(fmt.Sprintf("%v: %d", event.Target.Name, event.Target.Health))

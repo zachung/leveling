@@ -159,11 +159,17 @@ func (hero *Hero) SetNextAction(action *contract2.ActionEvent) {
 	case 1:
 		hero.isAutoAttack = !hero.isAutoAttack
 		event := hero.getCurrentState()
+		event.Action = *action
 		if hero.client != nil {
 			(*hero.client).Send(event)
 		}
 	case 2:
 		hero.nextAction = action
+		event := hero.getCurrentState()
+		event.Action = *action
+		if hero.client != nil {
+			(*hero.client).Send(event)
+		}
 		service.Logger().Debug("%s %+v\n", hero.name, action)
 	}
 }

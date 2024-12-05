@@ -16,12 +16,13 @@ type ActionEvent struct {
 
 type StateChangeEvent struct {
 	Event        `json:"event,omitempty"`
-	Name         string `json:"name"`
-	Health       int    `json:"health"`
-	IsAutoAttack bool   `json:"isAutoAttack"`
-	Damage       int    `json:"damage,omitempty"`
-	Target       Hero   `json:"target,omitempty"`
-	Attacker     Hero   `json:"attacker,omitempty"`
+	Name         string      `json:"name"`
+	Health       int         `json:"health"`
+	IsAutoAttack bool        `json:"isAutoAttack"`
+	Action       ActionEvent `json:"action,omitempty"`
+	Damage       int         `json:"damage,omitempty"`
+	Target       Hero        `json:"target,omitempty"`
+	Attacker     Hero        `json:"attacker,omitempty"`
 }
 
 type HeroDieEvent struct {
