@@ -105,6 +105,7 @@ func (r *Round) RemoveHero(client *contract.Client) {
 			delete(r.heroes, (*hero).GetName())
 			delete(r.keys, c)
 			r.roundChanged = true
+			(*client).Close()
 			service.Logger().Info("Bye bye %s, now %d.\n", (*hero).GetName(), len(r.keys))
 		}
 	}()

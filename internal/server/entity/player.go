@@ -45,14 +45,15 @@ func New(data dao.Hero, client *contract.Client) *contract.IHero {
 }
 
 func (hero *Hero) Update(dt float64) bool {
-	hero.isActive = false
 	if hero.IsDie() {
 		return false
 	}
 	hero.roundAutoAttack(dt)
 	hero.roundAction(dt)
+	isActive := hero.isActive
+	hero.isActive = false
 
-	return hero.isActive
+	return isActive
 }
 
 func (hero *Hero) roundAutoAttack(dt float64) {

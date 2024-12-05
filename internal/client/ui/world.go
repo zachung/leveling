@@ -22,7 +22,6 @@ func newWorld(app *tview.Application) *World {
 	textView.SetChangedFunc(func(i int, s string, s2 string, r rune) {
 		// send select target event to server
 		selectTarget(s2)
-		service.UI().Report().Focus()
 	})
 
 	return &World{textView, app}

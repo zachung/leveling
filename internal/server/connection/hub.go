@@ -42,12 +42,11 @@ func (h *Hub) Run() {
 			hero := service.Server().NewClientConnect(&c)
 			h.clients[client] = *hero
 		case client := <-h.unregister:
-			c := contract.Client(client)
-			service.Server().LeaveClientConnect(&c)
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
-				(*client).Close()
 			}
+			c := contract.Client(client)
+			service.Server().LeaveClientConnect(&c)
 		case message := <-h.broadcast:
 			for client := range h.clients {
 				if !(*client).Send(message) {
