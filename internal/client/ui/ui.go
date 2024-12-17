@@ -1,94 +1,109 @@
 package ui
 
 import (
-	"github.com/rivo/tview"
+	"fmt"
+	"github.com/ebitenui/ebitenui"
+	"github.com/hajimehoshi/ebiten/v2"
 	"leveling/internal/client/contract"
 	"leveling/internal/client/message"
 	"leveling/internal/client/service"
+	"log"
 )
 
+const (
+	screenWidth  = 1024
+	screenHeight = 768
+)
+
+var keyConsole *Console
+var console *Console
+
 type UI struct {
-	app      *tview.Application
-	stopChan chan bool
-	state    *contract.State
-	world    *contract.World
-	report   *contract.Panel
+	game *Game
 }
 
-func NewUi() *contract.UI {
+func NewUi() contract.UI {
 	var ui contract.UI
-	app := tview.NewApplication()
 
-	sideView := sidebar()
-	report := battleReport(app)
-	state := newState(app)
-	world := newWorld(app)
-
-	grid := tview.NewGrid().
-		SetRows(-2, -2, -2).
-		SetColumns(-3, 0).
-		AddItem(state.view, 0, 0, 1, 1, 0, 0, false).
-		AddItem(world.textView, 0, 1, 2, 1, 0, 0, false).
-		AddItem(sideView, 2, 1, 1, 1, 0, 0, false).
-		AddItem(report.textView, 1, 0, 2, 1, 0, 0, false)
-
-	app.SetRoot(grid, true).SetFocus(report.textView)
-
-	go func() {
-		if err := app.Run(); err != nil {
-			panic(err)
-		}
-	}()
-	s := contract.State(state)
-	w := contract.World(world)
-	p := contract.Panel(report)
-	u := &UI{app: app, stopChan: make(chan bool), state: &s, world: &w, report: &p}
+	u := &UI{}
 	ui = contract.UI(u)
 
-	return &ui
-}
-
-func (u *UI) SetKeyBinding() {
-	u.app.SetInputCapture(handleGlobalKeys)
-}
-
-func (u *UI) Run() {
-	locator := service.GetLocator().SetLogger(u.Logger())
-	service.Logger().Info("Initializing...\n")
-	go func() {
-		ui := contract.UI(u)
-		locator.
-			SetUI(&ui).
-			SetKeyLogger(u.SideLogger()).
-			SetConnector(message.NewConnection()).
-			SetController(NewController())
-		u.SetKeyBinding()
-		service.Logger().Info("Ready for connect, press T/S/B start.\n")
-	}()
-	<-u.stopChan
-}
-
-func (u *UI) Stop() {
-	u.app.Stop()
-	u.stopChan <- true
+	return ui
 }
 
 func (u *UI) Logger() *contract.Console {
-	return console
+	c := contract.Console(console)
+	return &c
 }
 
 func (u *UI) SideLogger() *contract.Console {
-	return keyConsole
+	c := contract.Console(keyConsole)
+	return &c
+}
+
+func (u *UI) Run() {
+	defer u.Stop()
+
+	locator := service.GetLocator().SetBus(service.NewBus())
+
+	console = &Console{}
+	keyConsole = &Console{}
+
+	ui := ebitenui.UI{
+		Container: layoutRoot(),
+	}
+	game := Game{
+		ui: &ui,
+	}
+	game.state = newState()
+	game.world = newWorld()
+
+	ebiten.SetWindowSize(screenWidth, screenHeight)
+	ebiten.SetWindowTitle("Leveling")
+
+	go func() {
+		locator.SetLogger(u.Logger())
+		service.Logger().Info("Initializing...\n")
+
+		ui2 := contract.UI(u)
+		locator.
+			SetUI(&ui2).
+			SetKeyLogger(u.SideLogger()).
+			SetConnector(message.NewConnection()).
+			SetController(NewController())
+		service.Logger().Info("Ready for connect, press T/S/B start.\n")
+	}()
+
+	// run Ebiten main loop
+	err := ebiten.RunGame(&game)
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func (u *UI) Stop() {
+	log.Println("Stopping...")
+	service.Connector().Close()
+	log.Println("bye bye")
 }
 
 func (u *UI) State() contract.State {
-	return *u.state
+	return contract.State(u.game.state)
 }
 
 func (u *UI) World() contract.World {
-	return *u.world
+	return contract.World(u.game.world)
 }
 
 func (u *UI) Report() contract.Panel {
-	return *u.report
+	return nil
+}
+
+type Console struct {
+	text string
+}
+
+func (c *Console) Info(msg string, args ...any) {
+	bus := service.EventBus()
+	bus.AppendReport(fmt.Sprintf(msg, args...))
 }

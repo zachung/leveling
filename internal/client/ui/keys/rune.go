@@ -1,7 +1,8 @@
 package keys
 
 import (
-	"github.com/gdamore/tcell/v2"
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"leveling/internal/client/service"
 	contract2 "leveling/internal/contract"
 )
@@ -18,25 +19,31 @@ func NewRune(next Func) *Rune {
 	return i
 }
 
-func (c Rune) handleEvent(event *tcell.EventKey) *tcell.EventKey {
-	if event.Key() == tcell.KeyRune {
+func (c Rune) handleEvent() *ebiten.Key {
+	if inpututil.IsKeyJustPressed(ebiten.Key1) {
 		spell := contract2.ActionEvent{Event: contract2.Event{Type: contract2.Action}}
-
-		switch event.Rune() {
-		case '1':
-			spell.Id = 1
-			service.Controller().Send(spell)
-		case '2':
-			spell.Id = 2
-			service.Controller().Send(spell)
-		case 's':
-			service.Controller().Connect("Sin")
-		case 't':
-			service.Controller().Connect("Taras")
-		case 'b':
-			service.Controller().Connect("Brian")
-		}
-		return nil
+		spell.Id = 1
+		service.Controller().Send(spell)
+		key := ebiten.Key1
+		return &key
+	} else if inpututil.IsKeyJustPressed(ebiten.Key2) {
+		spell := contract2.ActionEvent{Event: contract2.Event{Type: contract2.Action}}
+		spell.Id = 2
+		service.Controller().Send(spell)
+		key := ebiten.Key2
+		return &key
+	} else if inpututil.IsKeyJustPressed(ebiten.KeyS) {
+		service.Controller().Connect("Sin")
+		key := ebiten.KeyS
+		return &key
+	} else if inpututil.IsKeyJustPressed(ebiten.KeyT) {
+		service.Controller().Connect("Taras")
+		key := ebiten.KeyT
+		return &key
+	} else if inpututil.IsKeyJustPressed(ebiten.KeyB) {
+		service.Controller().Connect("Brian")
+		key := ebiten.KeyB
+		return &key
 	}
-	return event
+	return nil
 }

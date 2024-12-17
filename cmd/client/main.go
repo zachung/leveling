@@ -5,6 +5,6 @@ import (
 )
 
 func main() {
-	newUi := *ui.NewUi()
+	newUi := ui.NewUi()
 	newUi.Run()
 }

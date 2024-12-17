@@ -1,13 +1,13 @@
 package keys
 
 import (
-	"github.com/gdamore/tcell/v2"
+	"github.com/hajimehoshi/ebiten/v2"
 	"leveling/internal/client/service"
 )
 
 type Func interface {
-	Execute(event *tcell.EventKey) *tcell.EventKey
-	handleEvent(event *tcell.EventKey) *tcell.EventKey
+	Execute() *ebiten.Key
+	handleEvent() *ebiten.Key
 }
 
 type T struct {
@@ -15,13 +15,14 @@ type T struct {
 	next Func
 }
 
-func (t *T) Execute(event *tcell.EventKey) *tcell.EventKey {
-	if t.handleEvent(event) == nil {
-		service.SideLogger().Info("%v\n", event.Name())
+func (t *T) Execute() *ebiten.Key {
+	key := t.handleEvent()
+	if key != nil {
+		service.SideLogger().Info("%v\n", key)
 		return nil
 	}
 	if t.next != nil {
-		return t.next.Execute(event)
+		return t.next.Execute()
 	}
-	return event
+	return key
 }

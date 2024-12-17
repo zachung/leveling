@@ -44,3 +44,22 @@ type Connector interface {
 	SendMessage(message contract.Message)
 	GetCurName() string
 }
+
+type BusEvent int
+
+const (
+	OnStateChanged BusEvent = iota
+	OnWorldChanged
+	OnReportAppend
+)
+
+type Bus interface {
+	AddObserver(event BusEvent, observer func())
+	SetState(event contract.StateChangeEvent)
+	GetState() contract.StateChangeEvent
+	SetWorldState(event contract.WorldEvent)
+	GetWorldState() contract.WorldEvent
+	SelectNext()
+	AppendReport(text string)
+	GetReport() string
+}

@@ -1,107 +1,102 @@
 package ui
 
 import (
-	"fmt"
-	"github.com/gdamore/tcell/v2"
-	"github.com/rivo/tview"
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
+	"github.com/hajimehoshi/ebiten/v2/vector"
+	"image/color"
+	contract2 "leveling/internal/client/contract"
+	"leveling/internal/client/service"
 	"leveling/internal/contract"
+	"strconv"
 	"time"
 )
 
-type SkillView struct {
-	grid   *tview.Grid
-	skill1 *tview.TextView
-	skill2 *tview.TextView
-	skill3 *tview.TextView
-}
+var (
+	skillBoxSize     = float32(40)
+	skillStrokeWidth = float32(2)
+	colorRed         = color.RGBA{R: 0xff, A: 0xff}
+)
 
 type State struct {
-	view       *tview.Grid
-	healthView *tview.TextView
-	app        *tview.Application
-	skillView  *SkillView
-	targetView *tview.TextView
+	skills    []*SkillBox
+	isWarning bool
+	event     *contract.StateChangeEvent
 }
 
-func newState(app *tview.Application) *State {
-	healthView := tview.NewTextView()
-	healthView.SetTitleAlign(tview.AlignLeft)
-	healthView.SetChangedFunc(func() {
-		app.Draw()
-	})
-	skillView := newSkillView()
-	targetView := tview.NewTextView()
-	targetView.SetTitleAlign(tview.AlignLeft)
+func newState() *State {
+	const skillCount = 10
+	x := (screenWidth - (skillBoxSize+skillStrokeWidth*2)*skillCount) / 2
+	y := screenHeight - skillBoxSize - skillStrokeWidth*2
 
-	grid := tview.NewGrid().
-		SetRows(-1).
-		SetColumns(-1, -1, -1).
-		SetBorders(true).
-		AddItem(healthView, 0, 0, 1, 1, 0, 0, false).
-		AddItem(skillView.grid, 0, 1, 1, 1, 0, 0, false).
-		AddItem(targetView, 0, 2, 1, 1, 0, 0, false)
-
-	return &State{
-		view:       grid,
-		healthView: healthView,
-		skillView:  skillView,
-		targetView: targetView,
-		app:        app,
+	var skills []*SkillBox
+	for i := 0; i < skillCount; i++ {
+		skills = append(skills, &SkillBox{
+			x:    x + (skillBoxSize+skillStrokeWidth)*float32(i) + skillStrokeWidth,
+			y:    y,
+			text: strconv.Itoa(i),
+		})
 	}
-}
-
-func newSkillView() *SkillView {
-	skill1 := tview.NewTextView().
-		SetText("１").
-		SetDynamicColors(true)
-	skill2 := tview.NewTextView().
-		SetText("２").
-		SetDynamicColors(true)
-	skill3 := tview.NewTextView().
-		SetText("３").
-		SetDynamicColors(true)
-
-	grid := tview.NewGrid().
-		SetRows(-1, 1).
-		SetColumns(2, 2, 2, -1).
-		AddItem(skill1, 1, 0, 1, 1, 0, 0, false).
-		AddItem(skill2, 1, 1, 1, 1, 0, 0, false).
-		AddItem(skill3, 1, 2, 1, 1, 0, 0, false)
-	grid.SetBackgroundColor(tcell.ColorRed)
-
-	return &SkillView{
-		grid:   grid,
-		skill1: skill1,
-		skill2: skill2,
-		skill3: skill3,
+	s := &State{
+		skills: skills,
 	}
+
+	return s
 }
 
 func (s *State) UpdateState(event contract.StateChangeEvent) {
+	s.event = &event
+}
+
+func (s *State) Draw(dst *ebiten.Image) {
+	event := service.EventBus().GetState()
 	// self health
-	s.healthView.SetText(fmt.Sprintf("%v: %d", event.Name, event.Health))
 	if event.Damage > 0 {
-		s.healthView.SetBorderColor(tcell.ColorRed)
+		s.isWarning = true
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			s.isWarning = false
+		}()
 	}
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		s.healthView.SetBorderColor(tcell.ColorWhite)
-		s.app.Draw()
-	}()
 
 	// auto attack
 	if event.IsAutoAttack {
-		s.skillView.skill1.SetBackgroundColor(tcell.ColorRed)
+		s.skills[0].isEnabled = true
 	} else {
-		s.skillView.skill1.SetBackgroundColor(tcell.ColorBlack)
+		s.skills[0].isEnabled = false
+	}
+	// skill 1
+	if event.Action.Id == 2 {
+		s.skills[1].isEnabled = true
+	} else {
+		s.skills[1].isEnabled = false
 	}
 
-	// auto attack
-	if event.Action.Id == 2 {
-		s.skillView.skill2.SetBackgroundColor(tcell.ColorRed)
-	} else {
-		s.skillView.skill2.SetBackgroundColor(tcell.ColorBlack)
+	for _, skill := range s.skills {
+		drawSkillBox(dst, skill)
 	}
-	// target
-	s.targetView.SetText(fmt.Sprintf("%v: %d", event.Target.Name, event.Target.Health))
+}
+
+type SkillBox struct {
+	x, y      float32
+	text      string
+	isEnabled bool
+}
+
+func drawSkillBox(dst *ebiten.Image, box *SkillBox) {
+	var clr color.Color
+	if box.isEnabled {
+		clr = colorRed
+	} else {
+		clr = color.White
+	}
+	vector.StrokeRect(dst, box.x, box.y, skillBoxSize, skillBoxSize, skillStrokeWidth, clr, false)
+	textOp := &text.DrawOptions{}
+	// half number align to center
+	textOp.GeoM.Translate(float64(box.x+skillBoxSize/4), float64(box.y))
+	textOp.ColorScale.ScaleWithColor(color.White)
+	text.Draw(dst, box.text, &text.GoTextFace{
+		Source: contract2.UiFaceSource,
+		Size:   float64(skillBoxSize),
+	}, textOp)
 }

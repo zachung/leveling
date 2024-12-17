@@ -1,7 +1,8 @@
 package keys
 
 import (
-	"github.com/gdamore/tcell/v2"
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"leveling/internal/client/service"
 )
 
@@ -17,10 +18,11 @@ func NewSwitchTarget(next Func) *SwitchTarget {
 	return i
 }
 
-func (c SwitchTarget) handleEvent(event *tcell.EventKey) *tcell.EventKey {
-	if event.Key() == tcell.KeyTAB {
-		service.UI().World().SelectNext()
-		return nil
+func (c SwitchTarget) handleEvent() *ebiten.Key {
+	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
+		service.EventBus().SelectNext()
+		key := ebiten.KeyTab
+		return &key
 	}
-	return event
+	return nil
 }

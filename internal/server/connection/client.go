@@ -132,6 +132,11 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Client) Send(msg contract.Message) bool {
+	defer func() {
+		if r := recover(); r != nil {
+			service.Logger().Info("error send message: %s, %v", msg, r)
+		}
+	}()
 	serialize := contract.Serialize(msg)
 	select {
 	case c.send <- serialize:

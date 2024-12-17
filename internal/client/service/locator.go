@@ -10,6 +10,7 @@ type Locator struct {
 	ui          *contract.UI
 	connector   *contract.Connector
 	sideConsole *contract.Console
+	bus         contract.Bus
 }
 
 var locator *Locator
@@ -41,6 +42,10 @@ func SideLogger() contract.Console {
 	return *locator.sideConsole
 }
 
+func EventBus() contract.Bus {
+	return locator.bus
+}
+
 func (locator *Locator) SetLogger(console *contract.Console) *Locator {
 	locator.console = console
 
@@ -67,6 +72,12 @@ func (locator *Locator) SetUI(ui *contract.UI) *Locator {
 
 func (locator *Locator) SetKeyLogger(console *contract.Console) *Locator {
 	locator.sideConsole = console
+
+	return locator
+}
+
+func (locator *Locator) SetBus(bus contract.Bus) *Locator {
+	locator.bus = bus
 
 	return locator
 }

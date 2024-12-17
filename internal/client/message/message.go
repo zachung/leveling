@@ -56,15 +56,15 @@ func receiveHandler(connection *websocket.Conn, name string) {
 			var message string
 			if event.Name == name {
 				if event.Attacker.Name != "" {
-					message = fmt.Sprintf("[red]-%v health[white] from [::u]%s[::U], remain %v\n",
+					message = fmt.Sprintf("[color=ff0000]-%v health[/color] from %s, remain %v\n",
 						event.Damage,
 						event.Attacker.Name,
 						event.Health,
 					)
 				}
-				service.UI().State().UpdateState(event)
+				service.EventBus().SetState(event)
 			} else {
-				message = fmt.Sprintf("attack [red]%s(%v)[white] make [red]%v[white] damage\n",
+				message = fmt.Sprintf("attack [color=ff0000]%s(%v)[/color] make [color=ff0000]%v[/color] damage\n",
 					event.Name,
 					event.Health,
 					event.Damage,
@@ -77,15 +77,15 @@ func receiveHandler(connection *websocket.Conn, name string) {
 			event := unSerialize.(contract2.HeroDieEvent)
 			var message string
 			if event.Name == name {
-				message = "[red]You Died[white].\n"
-				service.UI().State().UpdateState(contract2.StateChangeEvent{Name: name, Health: 0})
+				message = "[color=ff0000]You Died[/color].\n"
+				service.EventBus().SetState(contract2.StateChangeEvent{Name: name, Health: 0})
 			} else {
 				message = fmt.Sprintf("%v is Died.\n", event.Name)
 			}
 			service.Logger().Info(message)
 		case contract2.WorldEvent:
 			event := unSerialize.(contract2.WorldEvent)
-			service.UI().World().UpdateWorld(event)
+			service.EventBus().SetWorldState(event)
 		default:
 			service.Logger().Info("Received unknown message: %+v %T\n", unSerialize, unSerialize)
 		}

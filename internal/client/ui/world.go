@@ -2,29 +2,20 @@ package ui
 
 import (
 	"fmt"
-	"github.com/rivo/tview"
+	"github.com/hajimehoshi/ebiten/v2"
 	"leveling/internal/client/service"
+	"leveling/internal/client/ui/component"
 	"leveling/internal/contract"
 	"sort"
 )
 
 type World struct {
-	textView *tview.List
-	app      *tview.Application
+	event         contract.WorldEvent
+	currentTarget string
 }
 
-func newWorld(app *tview.Application) *World {
-	textView := tview.NewList()
-	textView.SetTitle("World(F2)").
-		SetTitleAlign(tview.AlignLeft).
-		SetBorder(true)
-	textView.ShowSecondaryText(false)
-	textView.SetChangedFunc(func(i int, s string, s2 string, r rune) {
-		// send select target event to server
-		selectTarget(s2)
-	})
-
-	return &World{textView, app}
+func newWorld() *World {
+	return &World{}
 }
 
 func selectTarget(name string) {
@@ -37,10 +28,35 @@ func selectTarget(name string) {
 	service.Controller().Send(event)
 }
 
-func (s *World) UpdateWorld(event contract.WorldEvent) {
+func (w *World) UpdateWorld(event contract.WorldEvent) {
+	w.event = event
+}
+
+// Focus deprecated
+func (w *World) Focus() {
+}
+
+func (w *World) SelectNext() {
+	if len(w.event.Heroes) == 0 {
+		return
+	}
+	curIndex := 0
+	for i, hero := range w.event.Heroes {
+		if hero.Name == w.currentTarget {
+			curIndex = i
+		}
+	}
+	index := curIndex + 1
+	if index >= len(w.event.Heroes) {
+		index = 0
+	}
+	selectTarget(w.event.Heroes[index].Name)
+}
+
+func (w *World) Draw(dst *ebiten.Image) {
+	event := service.EventBus().GetWorldState()
 	heroes := event.Heroes
 	if len(heroes) == 0 {
-		s.textView.Clear()
 		return
 	}
 	// sort
@@ -56,19 +72,10 @@ func (s *World) UpdateWorld(event contract.WorldEvent) {
 		keys = append(keys, hero.Name)
 	}
 	sort.Strings(keys)
-	// 紀錄之前的選擇
-	var curText string
-	if s.textView.GetItemCount() > 0 {
-		_, curText = s.textView.GetItemText(s.textView.GetCurrentItem())
-		s.textView.Clear()
-	}
 	// make list
-	curInx := 0
-	for i, k := range keys {
+	listBox := component.NewListBox(400, 200)
+	for _, k := range keys {
 		name := m[k].Name
-		if curText == name {
-			curInx = i
-		}
 		mainText := fmt.Sprintf("%s(%d)", name, m[k].Health)
 		if m[k].Target != nil {
 			if m[k].Target.Name == curName {
@@ -76,20 +83,7 @@ func (s *World) UpdateWorld(event contract.WorldEvent) {
 				mainText += "⚔️"
 			}
 		}
-		s.textView.AddItem(mainText, name, rune('1'+i), nil)
+		listBox.AppendItem(mainText)
 	}
-	s.textView.SetCurrentItem(curInx)
-	s.app.Draw()
-}
-
-func (s *World) Focus() {
-	s.app.SetFocus(s.textView)
-}
-
-func (s *World) SelectNext() {
-	index := s.textView.GetCurrentItem() + 1
-	if index >= s.textView.GetItemCount() {
-		index = 0
-	}
-	s.textView.SetCurrentItem(index)
+	listBox.Draw(dst)
 }
