@@ -68,7 +68,7 @@ func (c *Client) readPump() {
 		action := contract.UnSerialize(message)
 		service.Logger().Info("%+v\n", action)
 		client := contract2.Client(c)
-		service.Hub().SendAction(&client, &action)
+		service.Hub().SendAction(client, action)
 	}
 }
 

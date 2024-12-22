@@ -24,15 +24,14 @@ type Server struct {
 	stopChan chan bool
 }
 
-func NewServer() *contract.Server {
-	var server contract.Server
-	server = &Server{
+func NewServer() contract.Server {
+	server := &Server{
 		lastTime: utils.Now(),
 		speed:    1,
 		stopChan: make(chan bool),
 	}
 
-	return &server
+	return server
 }
 
 func (s *Server) Start() {
@@ -62,9 +61,8 @@ func (s *Server) gameStart() {
 }
 
 func (s *Server) gameInitial() {
-	server := contract.Server(s)
 	locator := service.GetLocator().
-		SetServer(&server).
+		SetServer(s).
 		SetLogger(service.NewConsole())
 	service.Logger().Info("Server initialing\n")
 
@@ -72,12 +70,12 @@ func (s *Server) gameInitial() {
 	go func() {
 		hub := connection.NewHub()
 		locator.SetHub(hub)
-		go (*hub).Run()
+		go hub.Run()
 		connection.NewMessenger()
 		service.Logger().Info("Listening for client\n")
 	}()
 
-	var heroes []*contract.IHero
+	var heroes []contract.IHero
 	for _, data := range repository.GetHeroData() {
 		heroes = append(heroes, entity.New(data, nil))
 	}
@@ -116,15 +114,14 @@ func (s *Server) Stop() {
 	}()
 }
 
-func (s *Server) NewClientConnect(client *contract.Client) *contract.IHero {
-	c := *client
-	data := repository.GetHeroByName(c.GetName())
+func (s *Server) NewClientConnect(client contract.Client) contract.IHero {
+	data := repository.GetHeroByName(client.GetName())
 	newHero := entity.New(data, client)
 	s.round.AddHero(client, newHero)
 
 	return newHero
 }
 
-func (s *Server) LeaveClientConnect(client *contract.Client) {
+func (s *Server) LeaveClientConnect(client contract.Client) {
 	s.round.RemoveHero(client)
 }

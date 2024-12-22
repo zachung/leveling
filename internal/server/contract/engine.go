@@ -4,12 +4,12 @@ import contract2 "leveling/internal/contract"
 
 type Server interface {
 	Start()
-	NewClientConnect(client *Client) *IHero
-	LeaveClientConnect(client *Client)
+	NewClientConnect(client Client) IHero
+	LeaveClientConnect(client Client)
 }
 
 type Round interface {
-	GetHero(name string) *IHero
+	GetHero(name string) IHero
 }
 
 type Console interface {
@@ -26,7 +26,7 @@ type Client interface {
 
 type Hub interface {
 	Run()
-	SendAction(client *Client, action *contract2.Message)
+	SendAction(client Client, action contract2.Message)
 	Broadcast(m contract2.Message)
 }
 

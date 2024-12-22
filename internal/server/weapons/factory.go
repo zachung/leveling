@@ -5,9 +5,8 @@ import (
 )
 
 type Weapon struct {
-	power  int
-	speed  float64
-	holder *contract.IHero
+	power int
+	speed float64
 }
 
 func (weapon *Weapon) GetSpeed() float64 {

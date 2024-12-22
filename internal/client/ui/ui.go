@@ -14,7 +14,7 @@ const (
 	screenHeight = 768
 )
 
-var console *Console
+var console contract.Chat
 
 type UI struct {
 	game *Game
@@ -29,9 +29,8 @@ func NewUi() contract.UI {
 	return ui
 }
 
-func (u *UI) Chat() *contract.Chat {
-	c := contract.Chat(console)
-	return &c
+func (u *UI) Chat() contract.Chat {
+	return console
 }
 
 func (u *UI) Run() {
@@ -43,9 +42,8 @@ func (u *UI) Run() {
 		locator.SetChat(u.Chat())
 		service.Chat().Info("Initializing...\n")
 
-		ui := contract.UI(u)
 		locator.
-			SetUI(&ui).
+			SetUI(u).
 			SetConnector(message.NewConnection()).
 			SetController(NewController())
 		service.Chat().Info("Ready for connect, press T/S/B start.\n")

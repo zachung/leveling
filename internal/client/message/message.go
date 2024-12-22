@@ -17,11 +17,8 @@ type Connector struct {
 
 var done chan interface{}
 
-func NewConnection() *contract.Connector {
-	c := &Connector{}
-	connector := contract.Connector(c)
-
-	return &connector
+func NewConnection() contract.Connector {
+	return new(Connector)
 }
 
 func (c *Connector) Connect(name string) bool {

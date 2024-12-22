@@ -5,9 +5,9 @@ import (
 )
 
 type Locator struct {
-	console *contract.Console
-	server  *contract.Server
-	hub     *contract.Hub
+	console contract.Console
+	server  contract.Server
+	hub     contract.Hub
 }
 
 var locator *Locator
@@ -20,30 +20,30 @@ func GetLocator() *Locator {
 }
 
 func Logger() contract.Console {
-	return *locator.console
+	return locator.console
 }
 
 func Server() contract.Server {
-	return *locator.server
+	return locator.server
 }
 
 func Hub() contract.Hub {
-	return *locator.hub
+	return locator.hub
 }
 
-func (locator *Locator) SetLogger(console *contract.Console) *Locator {
+func (locator *Locator) SetLogger(console contract.Console) *Locator {
 	locator.console = console
 
 	return locator
 }
 
-func (locator *Locator) SetServer(server *contract.Server) *Locator {
+func (locator *Locator) SetServer(server contract.Server) *Locator {
 	locator.server = server
 
 	return locator
 }
 
-func (locator *Locator) SetHub(broadcaster *contract.Hub) *Locator {
+func (locator *Locator) SetHub(broadcaster contract.Hub) *Locator {
 	locator.hub = broadcaster
 
 	return locator

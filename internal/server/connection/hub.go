@@ -22,31 +22,28 @@ type Hub struct {
 	unregister chan *Client
 }
 
-func NewHub() *contract.Hub {
+func NewHub() contract.Hub {
 	h := &Hub{
 		broadcast:  make(chan contract2.Message),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		clients:    make(map[*Client]contract.IHero),
 	}
-	hub := contract.Hub(h)
 
-	return &hub
+	return h
 }
 
 func (h *Hub) Run() {
 	for {
 		select {
 		case client := <-h.register:
-			c := contract.Client(client)
-			hero := service.Server().NewClientConnect(&c)
-			h.clients[client] = *hero
+			hero := service.Server().NewClientConnect(client)
+			h.clients[client] = hero
 		case client := <-h.unregister:
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 			}
-			c := contract.Client(client)
-			service.Server().LeaveClientConnect(&c)
+			service.Server().LeaveClientConnect(client)
 		case message := <-h.broadcast:
 			for client := range h.clients {
 				if !(*client).Send(message) {
@@ -58,15 +55,15 @@ func (h *Hub) Run() {
 	}
 }
 
-func (h *Hub) SendAction(client *contract.Client, action *contract2.Message) {
-	c := (*client).(*Client)
+func (h *Hub) SendAction(client contract.Client, action contract2.Message) {
+	c := client.(*Client)
 	iHero := h.clients[c]
-	switch (*action).(type) {
+	switch action.(type) {
 	case contract2.ActionEvent:
-		event := (*action).(contract2.ActionEvent)
+		event := action.(contract2.ActionEvent)
 		iHero.SetNextAction(&event)
 	case contract2.SelectTargetEvent:
-		event := (*action).(contract2.SelectTargetEvent)
+		event := action.(contract2.SelectTargetEvent)
 		iHero.SetTarget(event.Name)
 	}
 }

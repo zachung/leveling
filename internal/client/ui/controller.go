@@ -9,12 +9,8 @@ import (
 type Controller struct {
 }
 
-func NewController() *contract.Controller {
-	var controller contract.Controller
-	c := &Controller{}
-	controller = contract.Controller(c)
-
-	return &controller
+func NewController() contract.Controller {
+	return new(Controller)
 }
 
 func (c *Controller) Connect(name string) {

@@ -5,6 +5,5 @@ import (
 )
 
 func main() {
-	s := *server.NewServer()
-	s.Start()
+	server.NewServer().Start()
 }

@@ -9,7 +9,7 @@ type Chat interface {
 }
 
 type UI interface {
-	Chat() *Chat
+	Chat() Chat
 	Run()
 	Stop()
 	State() State
