@@ -5,16 +5,23 @@ import (
 	"leveling/internal/server/contract"
 )
 
-type Subject struct {
-	observers []*contract.Observer
+type RoleSubject struct {
+	observers []contract.Observer
 }
 
-func (s *Subject) AddObserver(observer *contract.Observer) {
+func NewRoleSubject() contract.Subject {
+	return new(RoleSubject)
+}
+
+func (s *RoleSubject) AddObserver(observer contract.Observer) {
 	s.observers = append(s.observers, observer)
 }
 
-func (s *Subject) Notify(hero contract.IHero, event contract2.Message) {
-	for _, observer := range s.observers {
-		(*observer).OnNotify(hero, event)
+func (s *RoleSubject) Notify(hero contract.IHero, event contract2.Message) {
+	switch event.(type) {
+	case contract2.StateChangeEvent:
+		for _, observer := range s.observers {
+			observer.OnNotify(hero, event)
+		}
 	}
 }

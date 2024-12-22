@@ -35,6 +35,6 @@ type Observer interface {
 }
 
 type Subject interface {
-	AddObserver(observer *Observer)
+	AddObserver(observer Observer)
 	Notify(hero IHero, event contract2.Message)
 }

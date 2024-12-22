@@ -24,7 +24,7 @@ type Hero struct {
 	nextAction     *contract2.ActionEvent
 	target         *contract.IHero
 	round          *contract.Round
-	subject        *contract.Subject
+	subject        contract.Subject
 	isActive       bool
 	isAutoAttack   bool
 }
@@ -137,7 +137,7 @@ func messageEvent(from *Hero, damage contract.Damage, to *Hero) {
 		(*to.client).Send(getHurtEvent)
 	}
 	if to.subject != nil {
-		(*to.subject).Notify(to, getHurtEvent)
+		to.subject.Notify(to, getHurtEvent)
 	}
 	if to.IsDie() {
 		dieEvent := contract2.HeroDieEvent{Event: contract2.Event{Type: contract2.HeroDie}, Name: to.name}
@@ -201,12 +201,12 @@ func (hero *Hero) ApplyDamage(damage contract.Damage) {
 	}
 }
 
-func (hero *Hero) SetSubject(subject *contract.Subject) {
+func (hero *Hero) SetSubject(subject contract.Subject) {
 	hero.subject = subject
 }
 
 func (hero *Hero) Subject() contract.Subject {
-	return *hero.subject
+	return hero.subject
 }
 
 func (hero *Hero) getCurrentState() contract2.StateChangeEvent {

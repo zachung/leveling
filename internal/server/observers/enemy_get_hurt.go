@@ -5,9 +5,9 @@ import (
 	"leveling/internal/server/contract"
 )
 
-type GetHurt struct{}
+type EnemyGetHurt struct{}
 
-func (GetHurt) OnNotify(hero contract.IHero, event contract2.Message) {
+func (EnemyGetHurt) OnNotify(hero contract.IHero, event contract2.Message) {
 	switch event.(type) {
 	case contract2.StateChangeEvent:
 		changeEvent := event.(contract2.StateChangeEvent)

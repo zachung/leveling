@@ -14,7 +14,7 @@ type IHero interface {
 	GetTarget() *IHero
 	SetRound(round *Round)
 	ApplyDamage(damage Damage)
-	SetSubject(subject *Subject)
+	SetSubject(subject Subject)
 	Subject() Subject
 	SetAutoAttack(isAutoAttack bool)
 }

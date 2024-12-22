@@ -26,12 +26,12 @@ func NewRound(heroes []*contract.IHero) *Round {
 	}
 	round := contract.Round(r)
 
-	subject := contract.Subject(&hero2.Subject{})
-	hurt := contract.Observer(observers.GetHurt{})
-	subject.AddObserver(&hurt)
+	subject := hero2.NewRoleSubject()
+	hurt := contract.Observer(observers.EnemyGetHurt{})
+	subject.AddObserver(hurt)
 	for _, hero := range heroes {
 		iHero := *hero
-		iHero.SetSubject(&subject)
+		iHero.SetSubject(subject)
 		iHero.SetRound(&round)
 		r.heroes[iHero.GetName()] = hero
 	}
@@ -78,9 +78,17 @@ func (r *Round) AddHero(client *contract.Client, hero *contract.IHero) {
 	c := (*client).(*connection.Client)
 	go func() {
 		r.events <- func() {
-			h := (*hero).(*hero2.Hero)
 			round := contract.Round(r)
+
+			// observer
+			subject := contract.Subject(&hero2.RoleSubject{})
+			hurt := contract.Observer(observers.PlayerGetHurt{})
+			subject.AddObserver(hurt)
+			// setup hero
+			h := (*hero).(*hero2.Hero)
+			h.SetSubject(subject)
 			h.SetRound(&round)
+
 			r.keys[c] = hero
 			r.heroes[h.GetName()] = hero
 			event := contract2.StateChangeEvent{
@@ -90,7 +98,7 @@ func (r *Round) AddHero(client *contract.Client, hero *contract.IHero) {
 				Name:   h.GetName(),
 				Health: h.GetHealth(),
 			}
-			c.Send(event)
+			h.Subject().Notify(h, event)
 			r.roundChanged = true
 			service.Logger().Info("%s arrived, current %d.\n", h.GetName(), len(r.keys))
 		}
