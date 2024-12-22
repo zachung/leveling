@@ -25,19 +25,19 @@ func NewConnection() *contract.Connector {
 }
 
 func (c *Connector) Connect(name string) bool {
-	service.Logger().Info("%s connecting...\n", name)
+	service.Chat().Info("%s connecting...\n", name)
 	socketUrl := "ws://localhost:8080" + "/socket"
 	header := http.Header{}
 	header.Add("Authorization", name)
 	conn, _, err := websocket.DefaultDialer.Dial(socketUrl, header)
 	if err != nil {
-		service.Logger().Info("Error connecting to Websocket Server:%v\n", err)
+		service.Chat().Info("Error connecting to Websocket Server:%v\n", err)
 		return false
 	}
 	c.conn = conn
 	c.curName = name
 	go receiveHandler(conn, name)
-	service.Logger().Info("Connected!\n")
+	service.Chat().Info("Connected!\n")
 
 	return true
 }
@@ -46,7 +46,7 @@ func receiveHandler(connection *websocket.Conn, name string) {
 	for {
 		_, msg, err := connection.ReadMessage()
 		if err != nil {
-			service.Logger().Info("Error in receive:%v\n", err)
+			service.Chat().Info("Error in receive:%v\n", err)
 			return
 		}
 		unSerialize := contract2.UnSerialize(msg)
@@ -71,7 +71,7 @@ func receiveHandler(connection *websocket.Conn, name string) {
 				)
 			}
 			if message != "" {
-				service.Logger().Info(message)
+				service.Chat().Info(message)
 			}
 		case contract2.HeroDieEvent:
 			event := unSerialize.(contract2.HeroDieEvent)
@@ -82,12 +82,12 @@ func receiveHandler(connection *websocket.Conn, name string) {
 			} else {
 				message = fmt.Sprintf("%v is Died.\n", event.Name)
 			}
-			service.Logger().Info(message)
+			service.Chat().Info(message)
 		case contract2.WorldEvent:
 			event := unSerialize.(contract2.WorldEvent)
 			service.EventBus().SetWorldState(event)
 		default:
-			service.Logger().Info("Received unknown message: %+v %T\n", unSerialize, unSerialize)
+			service.Chat().Info("Received unknown message: %+v %T\n", unSerialize, unSerialize)
 		}
 	}
 }
@@ -99,20 +99,20 @@ func (c *Connector) Close() {
 	defer c.conn.Close()
 
 	// Terminate gracefully...
-	service.Logger().Info("Closing all pending connections\n")
+	service.Chat().Info("Closing all pending connections\n")
 
 	// Close our websocket connection
 	err := c.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 	if err != nil {
-		service.Logger().Info("Error during closing websocket:%v\n", err)
+		service.Chat().Info("Error during closing websocket:%v\n", err)
 		return
 	}
 
 	select {
 	case <-done:
-		service.Logger().Info("Receiver Channel Closed! Exiting....\n")
+		service.Chat().Info("Receiver Channel Closed! Exiting....\n")
 	case <-time.After(time.Duration(1) * time.Second):
-		service.Logger().Info("Timeout in closing receiving channel. Exiting....\n")
+		service.Chat().Info("Timeout in closing receiving channel. Exiting....\n")
 	}
 	return
 }
@@ -133,7 +133,7 @@ func (c *Connector) StartTest() {
 			// Send an echo packet every second
 			err := c.conn.WriteMessage(websocket.TextMessage, []byte("Hello from GolangDocs!"))
 			if err != nil {
-				service.Logger().Info("Error during writing to websocket:%v\n", err)
+				service.Chat().Info("Error during writing to websocket:%v\n", err)
 				return
 			}
 		}

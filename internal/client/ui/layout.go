@@ -13,7 +13,7 @@ func layoutRoot() *widget.Container {
 	// construct a new container that serves as the root of the UI hierarchy
 	rootContainer := widget.NewContainer(
 		// the container will use a plain color as its background
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(color.NRGBA{0x13, 0x1a, 0x22, 0xff})),
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(color.NRGBA{0, 0, 0, 0})),
 		// the container will use an anchor layout to layout its single child widget
 		widget.ContainerOpts.Layout(widget.NewGridLayout(
 			//Define number of columns in the grid
@@ -36,7 +36,7 @@ func layoutRoot() *widget.Container {
 	)
 
 	chatContainer := widget.NewContainer(
-		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(color.NRGBA{0, 0, 0, 127})),
+		widget.ContainerOpts.BackgroundImage(image.NewNineSliceColor(color.NRGBA{0, 0, 0, 0})),
 		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.LayoutData(widget.GridLayoutData{
 				MaxHeight: 150,
@@ -50,14 +50,13 @@ func layoutRoot() *widget.Container {
 			widget.GridLayoutOpts.Stretch([]bool{true, true}, []bool{true}),
 		)),
 	)
-	reportTextarea := textContainer()
-	eventTextarea := textContainer()
+	chatTextarea := textContainer()
 	bus := service.EventBus()
 	bus.AddObserver(contract.OnReportAppend, func() {
-		reportTextarea.SetText(bus.GetReport())
+		chatTextarea.SetText(bus.GetReport())
 	})
 
-	chatContainer.AddChild(reportTextarea, eventTextarea)
+	chatContainer.AddChild(chatTextarea)
 
 	footerContainer := widget.NewContainer(
 		widget.ContainerOpts.WidgetOpts(

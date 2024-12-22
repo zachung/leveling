@@ -2,7 +2,6 @@ package keys
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"leveling/internal/client/service"
 )
 
 type Func interface {
@@ -18,7 +17,7 @@ type T struct {
 func (t *T) Execute() *ebiten.Key {
 	key := t.handleEvent()
 	if key != nil {
-		service.SideLogger().Info("%v\n", key)
+		// key handled
 		return nil
 	}
 	if t.next != nil {

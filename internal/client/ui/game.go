@@ -14,6 +14,23 @@ type Game struct {
 	ui    *ebitenui.UI
 }
 
+func NewGame() *Game {
+	console = &Console{}
+
+	container := layoutRoot()
+	ui := ebitenui.UI{
+		Container: container,
+	}
+	game := Game{
+		ui: &ui,
+	}
+	game.state = newState()
+	game.world = newWorld()
+	container.AddChild(game.world.list)
+
+	return &game
+}
+
 func (g *Game) Update() error {
 	// update the UI
 	g.ui.Update()

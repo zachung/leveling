@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"github.com/ebitenui/ebitenui"
 	"github.com/hajimehoshi/ebiten/v2"
 	"leveling/internal/client/contract"
 	"leveling/internal/client/message"
@@ -15,7 +14,6 @@ const (
 	screenHeight = 768
 )
 
-var keyConsole *Console
 var console *Console
 
 type UI struct {
@@ -31,13 +29,8 @@ func NewUi() contract.UI {
 	return ui
 }
 
-func (u *UI) Logger() *contract.Console {
-	c := contract.Console(console)
-	return &c
-}
-
-func (u *UI) SideLogger() *contract.Console {
-	c := contract.Console(keyConsole)
+func (u *UI) Chat() *contract.Chat {
+	c := contract.Chat(console)
 	return &c
 }
 
@@ -46,36 +39,25 @@ func (u *UI) Run() {
 
 	locator := service.GetLocator().SetBus(service.NewBus())
 
-	console = &Console{}
-	keyConsole = &Console{}
+	go func() {
+		locator.SetChat(u.Chat())
+		service.Chat().Info("Initializing...\n")
 
-	ui := ebitenui.UI{
-		Container: layoutRoot(),
-	}
-	game := Game{
-		ui: &ui,
-	}
-	game.state = newState()
-	game.world = newWorld()
+		ui := contract.UI(u)
+		locator.
+			SetUI(&ui).
+			SetConnector(message.NewConnection()).
+			SetController(NewController())
+		service.Chat().Info("Ready for connect, press T/S/B start.\n")
+	}()
+
+	game := NewGame()
 
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowTitle("Leveling")
 
-	go func() {
-		locator.SetLogger(u.Logger())
-		service.Logger().Info("Initializing...\n")
-
-		ui2 := contract.UI(u)
-		locator.
-			SetUI(&ui2).
-			SetKeyLogger(u.SideLogger()).
-			SetConnector(message.NewConnection()).
-			SetController(NewController())
-		service.Logger().Info("Ready for connect, press T/S/B start.\n")
-	}()
-
 	// run Ebiten main loop
-	err := ebiten.RunGame(&game)
+	err := ebiten.RunGame(game)
 	if err != nil {
 		log.Println(err)
 	}

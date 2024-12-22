@@ -4,13 +4,12 @@ import (
 	"leveling/internal/contract"
 )
 
-type Console interface {
+type Chat interface {
 	Info(msg string, args ...any)
 }
 
 type UI interface {
-	Logger() *Console
-	SideLogger() *Console
+	Chat() *Chat
 	Run()
 	Stop()
 	State() State
