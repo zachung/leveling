@@ -31,10 +31,10 @@ type Hub interface {
 }
 
 type Observer interface {
-	OnNotify(hero IHero, event contract2.Message)
+	OnNotify(event contract2.Message)
 }
 
 type Subject interface {
 	AddObserver(observer Observer)
-	Notify(hero IHero, event contract2.Message)
+	Notify(event contract2.Message)
 }

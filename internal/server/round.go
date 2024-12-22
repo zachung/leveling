@@ -6,6 +6,7 @@ import (
 	"leveling/internal/server/contract"
 	hero2 "leveling/internal/server/entity"
 	"leveling/internal/server/observers"
+	"leveling/internal/server/repository"
 	"leveling/internal/server/service"
 	"sync"
 )
@@ -25,11 +26,7 @@ func NewRound(heroes []contract.IHero) *Round {
 		events: make(chan func()),
 	}
 
-	subject := hero2.NewRoleSubject()
-	hurt := contract.Observer(observers.EnemyGetHurt{})
-	subject.AddObserver(hurt)
 	for _, hero := range heroes {
-		hero.SetSubject(subject)
 		hero.SetRound(r)
 		r.heroes[hero.GetName()] = hero
 	}
@@ -72,14 +69,17 @@ func (r *Round) updateEntity(dt float64, wg *sync.WaitGroup, self contract.IHero
 	}
 }
 
-func (r *Round) AddHero(client contract.Client, hero contract.IHero) {
+func (r *Round) AddHero(client contract.Client) contract.IHero {
 	c := client.(*connection.Client)
+	data := repository.GetHeroByName(client.GetName())
+	// observer
+	subject := contract.Subject(&hero2.RoleSubject{})
+	hurt := contract.Observer(observers.NewPlayerListener(client))
+	subject.AddObserver(hurt)
+	hero := hero2.NewRole(data, subject, client)
+
 	go func() {
 		r.events <- func() {
-			// observer
-			subject := contract.Subject(&hero2.RoleSubject{})
-			hurt := contract.Observer(observers.PlayerGetHurt{})
-			subject.AddObserver(hurt)
 			// setup hero
 			hero.SetSubject(subject)
 			hero.SetRound(r)
@@ -93,11 +93,13 @@ func (r *Round) AddHero(client contract.Client, hero contract.IHero) {
 				Name:   hero.GetName(),
 				Health: hero.GetHealth(),
 			}
-			hero.Subject().Notify(hero, event)
+			hero.Subject().Notify(event)
 			r.roundChanged = true
 			service.Logger().Info("%s arrived, current %d.\n", hero.GetName(), len(r.keys))
 		}
 	}()
+
+	return hero
 }
 
 func (r *Round) RemoveHero(client contract.Client) {

@@ -17,11 +17,8 @@ func (s *RoleSubject) AddObserver(observer contract.Observer) {
 	s.observers = append(s.observers, observer)
 }
 
-func (s *RoleSubject) Notify(hero contract.IHero, event contract2.Message) {
-	switch event.(type) {
-	case contract2.StateChangeEvent:
-		for _, observer := range s.observers {
-			observer.OnNotify(hero, event)
-		}
+func (s *RoleSubject) Notify(event contract2.Message) {
+	for _, observer := range s.observers {
+		observer.OnNotify(event)
 	}
 }

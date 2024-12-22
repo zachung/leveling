@@ -5,6 +5,7 @@ import (
 	"leveling/internal/server/connection"
 	"leveling/internal/server/contract"
 	"leveling/internal/server/entity"
+	"leveling/internal/server/observers"
 	"leveling/internal/server/repository"
 	"leveling/internal/server/service"
 	"leveling/internal/server/utils"
@@ -77,7 +78,11 @@ func (s *Server) gameInitial() {
 
 	var heroes []contract.IHero
 	for _, data := range repository.GetHeroData() {
-		heroes = append(heroes, entity.New(data, nil))
+		subject := entity.NewRoleSubject()
+		hero := entity.NewRole(data, subject, nil)
+		hurt := contract.Observer(observers.NewEnemyListener(hero))
+		subject.AddObserver(hurt)
+		heroes = append(heroes, hero)
 	}
 	s.round = NewRound(heroes)
 }
@@ -115,11 +120,7 @@ func (s *Server) Stop() {
 }
 
 func (s *Server) NewClientConnect(client contract.Client) contract.IHero {
-	data := repository.GetHeroByName(client.GetName())
-	newHero := entity.New(data, client)
-	s.round.AddHero(client, newHero)
-
-	return newHero
+	return s.round.AddHero(client)
 }
 
 func (s *Server) LeaveClientConnect(client contract.Client) {

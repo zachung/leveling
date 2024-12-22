@@ -15,8 +15,6 @@ type Game struct {
 }
 
 func NewGame() *Game {
-	console = &Console{}
-
 	container := layoutRoot()
 	ui := ebitenui.UI{
 		Container: container,

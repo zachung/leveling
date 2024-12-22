@@ -14,8 +14,6 @@ const (
 	screenHeight = 768
 )
 
-var console contract.Chat
-
 type UI struct {
 	game *Game
 }
@@ -29,19 +27,15 @@ func NewUi() contract.UI {
 	return ui
 }
 
-func (u *UI) Chat() contract.Chat {
-	return console
-}
-
 func (u *UI) Run() {
 	defer u.Stop()
 
-	locator := service.GetLocator().SetBus(service.NewBus())
+	locator := service.GetLocator().
+		SetBus(service.NewBus()).
+		SetChat(&Chat{})
+	service.Chat().Info("Initializing...\n")
 
 	go func() {
-		locator.SetChat(u.Chat())
-		service.Chat().Info("Initializing...\n")
-
 		locator.
 			SetUI(u).
 			SetConnector(message.NewConnection()).
@@ -79,11 +73,11 @@ func (u *UI) Report() contract.Panel {
 	return nil
 }
 
-type Console struct {
+type Chat struct {
 	text string
 }
 
-func (c *Console) Info(msg string, args ...any) {
+func (c *Chat) Info(msg string, args ...any) {
 	bus := service.EventBus()
 	bus.AppendReport(fmt.Sprintf(msg, args...))
 }

@@ -29,7 +29,7 @@ type Hero struct {
 	isAutoAttack   bool
 }
 
-func New(data dao.Hero, client contract.Client) contract.IHero {
+func NewRole(data dao.Hero, subject contract.Subject, client contract.Client) contract.IHero {
 	weapon := weapons.NewWeapon(data.MainHand)
 	hero := &Hero{
 		name:          data.Name,
@@ -38,6 +38,7 @@ func New(data dao.Hero, client contract.Client) contract.IHero {
 		mainHand:      weapon,
 		roundCooldown: 0,
 		client:        client,
+		subject:       subject,
 	}
 
 	return hero
@@ -128,23 +129,12 @@ func messageEvent(from *Hero, damage contract.Damage, to *Hero) {
 		Name:   from.name,
 		Health: from.health,
 	}
-	if from.client != nil {
-		from.client.Send(getHurtEvent)
-	}
-	if to.client != nil {
-		to.client.Send(getHurtEvent)
-	}
-	if to.subject != nil {
-		to.subject.Notify(to, getHurtEvent)
-	}
+	from.subject.Notify(getHurtEvent)
+	to.subject.Notify(getHurtEvent)
 	if to.IsDie() {
 		dieEvent := contract2.HeroDieEvent{Event: contract2.Event{Type: contract2.HeroDie}, Name: to.name}
-		if from.client != nil {
-			from.client.Send(dieEvent)
-		}
-		if to.client != nil {
-			to.client.Send(dieEvent)
-		}
+		from.subject.Notify(dieEvent)
+		to.subject.Notify(dieEvent)
 	}
 }
 
