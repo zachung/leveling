@@ -45,20 +45,40 @@ func (b *Bus) GetWorldState() contract.WorldEvent {
 }
 
 func (b *Bus) SelectNext() {
-	if len(b.worldEvent.Heroes) == 0 {
+	count := len(b.worldEvent.Heroes)
+	if count == 0 {
 		return
 	}
-	curIndex := 0
-	for i, hero := range b.worldEvent.Heroes {
-		if hero.Name == b.stateEvent.Target.Name {
-			curIndex = i
+	selfName := b.stateEvent.Name
+	curSelect := b.stateEvent.Target.Name
+	isFound := false
+	heroes := b.worldEvent.Heroes
+	i := 0
+	r := 0
+	for {
+		if r == 1 && i >= count {
+			break
 		}
+		if i >= count {
+			i = 0
+			r = 1
+		}
+		if curSelect == "" {
+			isFound = true
+		}
+		if !isFound {
+			hero := b.worldEvent.Heroes[i]
+			if hero.Name == curSelect {
+				isFound = true
+			}
+		} else {
+			if heroes[i].Name != selfName {
+				selectTarget(heroes[i].Name)
+				break
+			}
+		}
+		i++
 	}
-	index := curIndex + 1
-	if index >= len(b.worldEvent.Heroes) {
-		index = 0
-	}
-	selectTarget(b.worldEvent.Heroes[index].Name)
 }
 
 func selectTarget(name string) {

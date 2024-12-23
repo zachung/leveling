@@ -115,7 +115,11 @@ func newHeadContainer() *widget.Container {
 	bus.AddObserver(contract.OnStateChanged, func() {
 		event := bus.GetState()
 		labelHealth.Label = fmt.Sprintf("%v: %d", event.Name, event.Health)
-		labelTarget.Label = fmt.Sprintf("%v: %d", event.Target.Name, event.Target.Health)
+		if event.Target.Name != "" {
+			labelTarget.Label = fmt.Sprintf("%v: %d", event.Target.Name, event.Target.Health)
+		} else {
+			labelTarget.Label = ""
+		}
 	})
 
 	return container
