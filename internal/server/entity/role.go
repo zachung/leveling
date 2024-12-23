@@ -4,7 +4,6 @@ import (
 	contract2 "leveling/internal/contract"
 	"leveling/internal/server/contract"
 	"leveling/internal/server/repository/dao"
-	"leveling/internal/server/service"
 	"leveling/internal/server/weapons"
 )
 
@@ -72,6 +71,7 @@ func (hero *Hero) doAutoAttack() {
 		return
 	}
 	if hero.target == nil {
+		hero.isAutoAttack = false
 		return
 	}
 	target := hero.target.(*Hero)
@@ -150,6 +150,9 @@ func (hero *Hero) IsDie() bool {
 func (hero *Hero) SetNextAction(action *contract2.ActionEvent) {
 	switch action.Id {
 	case 1:
+		if hero.target == nil {
+			return
+		}
 		hero.isAutoAttack = !hero.isAutoAttack
 		event := hero.getCurrentState()
 		event.Action = *action
@@ -157,14 +160,26 @@ func (hero *Hero) SetNextAction(action *contract2.ActionEvent) {
 			hero.client.Send(event)
 		}
 	case 2:
+		if hero.target == nil {
+			return
+		}
 		hero.nextAction = action
 		event := hero.getCurrentState()
 		event.Action = *action
 		if hero.client != nil {
 			hero.client.Send(event)
 		}
-		service.Logger().Debug("%s %+v\n", hero.name, action)
+	case 50:
+		hero.isAutoAttack = false
+		hero.nextAction = nil
+		hero.target = nil
+		event := hero.getCurrentState()
+		event.Action = *action
+		if hero.client != nil {
+			hero.client.Send(event)
+		}
 	}
+	hero.subject.Notify(hero.getCurrentState())
 }
 
 func (hero *Hero) GetName() string {
@@ -177,6 +192,7 @@ func (hero *Hero) GetHealth() int {
 
 func (hero *Hero) SetTarget(name string) {
 	hero.target = hero.round.GetHero(name)
+	hero.subject.Notify(hero.getCurrentState())
 }
 
 func (hero *Hero) GetTarget() contract.IHero {

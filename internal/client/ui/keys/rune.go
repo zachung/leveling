@@ -32,13 +32,19 @@ func (c Rune) handleEvent() *ebiten.Key {
 		service.Controller().Send(spell)
 		key := ebiten.Key2
 		return &key
-	} else if inpututil.IsKeyJustPressed(ebiten.KeyS) {
-		service.Controller().Connect("Sin")
-		key := ebiten.KeyS
+	} else if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		spell := contract2.ActionEvent{Event: contract2.Event{Type: contract2.Action}}
+		spell.Id = 50
+		service.Controller().Send(spell)
+		key := ebiten.KeyEscape
 		return &key
 	} else if inpututil.IsKeyJustPressed(ebiten.KeyT) {
 		service.Controller().Connect("Taras")
 		key := ebiten.KeyT
+		return &key
+	} else if inpututil.IsKeyJustPressed(ebiten.KeyB) {
+		service.Controller().Connect("Brian")
+		key := ebiten.KeyB
 		return &key
 	} else if inpututil.IsKeyJustPressed(ebiten.KeyB) {
 		service.Controller().Connect("Brian")
