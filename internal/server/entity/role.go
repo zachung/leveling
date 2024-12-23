@@ -123,14 +123,19 @@ func (hero *Hero) doAction() {
 
 func messageEvent(from *Hero, damage contract.Damage, to *Hero) {
 	// TODO: event queue
-	getHurtEvent := to.getCurrentState()
+	// make damage event
+	makeDamageEvent := contract2.MakeDamageEvent{Event: contract2.Event{Type: contract2.MakeDamage}}
+	makeDamageEvent.To = contract2.Hero{Name: to.name, Health: to.health}
+	makeDamageEvent.Damage = int(damage)
+	from.subject.Notify(makeDamageEvent)
+	// get hurt event
+	getHurtEvent := contract2.GetHurtEvent{Event: contract2.Event{Type: contract2.GetHurt}}
+	getHurtEvent.From = contract2.Hero{Name: from.name, Health: from.health}
 	getHurtEvent.Damage = int(damage)
-	getHurtEvent.Attacker = contract2.Hero{
-		Name:   from.name,
-		Health: from.health,
-	}
-	from.subject.Notify(getHurtEvent)
 	to.subject.Notify(getHurtEvent)
+	from.subject.Notify(from.getCurrentState())
+	to.subject.Notify(to.getCurrentState())
+	// die event
 	if to.IsDie() {
 		dieEvent := contract2.HeroDieEvent{Event: contract2.Event{Type: contract2.HeroDie}, Name: to.name}
 		from.subject.Notify(dieEvent)

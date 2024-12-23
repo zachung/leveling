@@ -25,6 +25,18 @@ type StateChangeEvent struct {
 	Attacker     Hero        `json:"attacker,omitempty"`
 }
 
+type GetHurtEvent struct {
+	Event  `json:"event,omitempty"`
+	Damage int  `json:"damage,omitempty"`
+	From   Hero `json:"from,omitempty"`
+}
+
+type MakeDamageEvent struct {
+	Event  `json:"event,omitempty"`
+	Damage int  `json:"damage,omitempty"`
+	To     Hero `json:"to,omitempty"`
+}
+
 type HeroDieEvent struct {
 	Event `json:"event,omitempty"`
 	Name  string `json:"name"`

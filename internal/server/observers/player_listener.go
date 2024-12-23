@@ -14,10 +14,5 @@ func NewPlayerListener(client contract.Client) *PlayerListener {
 }
 
 func (p PlayerListener) OnNotify(event contract2.Message) {
-	switch event.(type) {
-	case contract2.StateChangeEvent:
-		p.client.Send(event)
-	case contract2.HeroDieEvent:
-		p.client.Send(event)
-	}
+	p.client.Send(event)
 }

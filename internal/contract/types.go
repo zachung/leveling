@@ -9,6 +9,8 @@ type MessageType int
 const (
 	Unknown MessageType = iota
 	StateChange
+	GetHurt
+	MakeDamage
 	HeroDie
 	Action
 	World
@@ -37,6 +39,14 @@ func UnSerialize(bytes []byte) Message {
 		return message
 	case StateChange:
 		var message StateChangeEvent
+		json.Unmarshal(bytes, &message)
+		return message
+	case GetHurt:
+		var message GetHurtEvent
+		json.Unmarshal(bytes, &message)
+		return message
+	case MakeDamage:
+		var message MakeDamageEvent
 		json.Unmarshal(bytes, &message)
 		return message
 	case HeroDie:

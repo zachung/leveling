@@ -50,26 +50,23 @@ func receiveHandler(connection *websocket.Conn, name string) {
 		switch unSerialize.(type) {
 		case contract2.StateChangeEvent:
 			event := unSerialize.(contract2.StateChangeEvent)
-			var message string
-			if event.Name == name {
-				if event.Attacker.Name != "" {
-					message = fmt.Sprintf("[color=ff0000]-%v health[/color] from %s, remain %v\n",
-						event.Damage,
-						event.Attacker.Name,
-						event.Health,
-					)
-				}
-				service.EventBus().SetState(event)
-			} else {
-				message = fmt.Sprintf("attack [color=ff0000]%s(%v)[/color] make [color=ff0000]%v[/color] damage\n",
-					event.Name,
-					event.Health,
-					event.Damage,
-				)
-			}
-			if message != "" {
-				service.Chat().Info(message)
-			}
+			service.EventBus().SetState(event)
+		case contract2.GetHurtEvent:
+			event := unSerialize.(contract2.GetHurtEvent)
+			message := fmt.Sprintf("[color=ff0000]-%v health[/color] from %s, remain %v\n",
+				event.Damage,
+				event.From.Name,
+				event.From.Health,
+			)
+			service.Chat().Info(message)
+		case contract2.MakeDamageEvent:
+			event := unSerialize.(contract2.MakeDamageEvent)
+			message := fmt.Sprintf("attack [color=ff0000]%s(%v)[/color] make [color=ff0000]%v[/color] damage\n",
+				event.To.Name,
+				event.To.Health,
+				event.Damage,
+			)
+			service.Chat().Info(message)
 		case contract2.HeroDieEvent:
 			event := unSerialize.(contract2.HeroDieEvent)
 			var message string
