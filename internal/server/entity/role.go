@@ -83,28 +83,29 @@ func (hero *Hero) doAutoAttack() {
 	hero.isActive = true
 	damage := contract.Damage(hero.mainHand.GetPower())
 	target.ApplyDamage(damage)
+	if target.IsDie() {
+		hero.isAutoAttack = false
+		hero.nextAction = nil
+		hero.target = nil
+	}
 	// send message to client
 	messageEvent(hero, damage, target)
 }
 
 func (hero *Hero) roundAction(dt float64) {
 	hero.roundCooldown += dt
-	for {
-		if hero.roundCooldown < globalCoolDown {
-			return
-		}
-		if hero.nextAction == nil {
-			return
-		}
-		hero.roundCooldown -= globalCoolDown
-		hero.doAction()
+	if hero.roundCooldown < globalCoolDown {
+		return
 	}
+	if hero.nextAction == nil {
+		return
+	}
+	hero.roundCooldown = 0
+	hero.doAction()
 }
 
 func (hero *Hero) doAction() {
-	defer func() {
-		hero.nextAction = nil
-	}()
+	hero.nextAction = nil
 
 	if hero.target == nil {
 		return
@@ -117,6 +118,11 @@ func (hero *Hero) doAction() {
 	hero.isActive = true
 	damage := contract.Damage(hero.mainHand.GetPower() + hero.strength)
 	target.ApplyDamage(damage)
+	if target.IsDie() {
+		hero.isAutoAttack = false
+		hero.nextAction = nil
+		hero.target = nil
+	}
 	// send message to client
 	messageEvent(hero, damage, target)
 }
@@ -154,31 +160,19 @@ func (hero *Hero) SetNextAction(action *contract2.ActionEvent) {
 			return
 		}
 		hero.isAutoAttack = !hero.isAutoAttack
-		event := hero.getCurrentState()
-		event.Action = *action
-		if hero.client != nil {
-			hero.client.Send(event)
-		}
 	case 2:
 		if hero.target == nil {
 			return
 		}
 		hero.nextAction = action
-		event := hero.getCurrentState()
-		event.Action = *action
-		if hero.client != nil {
-			hero.client.Send(event)
-		}
 	case 50:
 		hero.isAutoAttack = false
 		hero.nextAction = nil
 		hero.target = nil
-		event := hero.getCurrentState()
-		event.Action = *action
-		if hero.client != nil {
-			hero.client.Send(event)
-		}
+	default:
+		return
 	}
+	hero.isActive = true
 	hero.subject.Notify(hero.getCurrentState())
 }
 
@@ -226,6 +220,9 @@ func (hero *Hero) getCurrentState() contract2.StateChangeEvent {
 		Name:         hero.name,
 		Health:       hero.health,
 		IsAutoAttack: hero.isAutoAttack,
+	}
+	if hero.nextAction != nil {
+		event.Action = *hero.nextAction
 	}
 	if hero.target != nil {
 		event.Target = contract2.Hero{

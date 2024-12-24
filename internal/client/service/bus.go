@@ -72,7 +72,7 @@ func (b *Bus) SelectNext() {
 				isFound = true
 			}
 		} else {
-			if heroes[i].Name != selfName {
+			if heroes[i].Name != selfName && heroes[i].Health > 0 {
 				selectTarget(heroes[i].Name)
 				break
 			}
