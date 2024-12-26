@@ -119,18 +119,7 @@ func (r *Round) RemoveHero(client contract.Client) {
 func (r *Round) broadcastHeroes() {
 	var heroes []contract2.Hero
 	for _, hero := range r.heroes {
-		elems := contract2.Hero{
-			Name:   hero.GetName(),
-			Health: hero.GetHealth(),
-		}
-		target := hero.GetTarget()
-		if target != nil {
-			elems.Target = &contract2.Hero{
-				Name:   target.GetName(),
-				Health: target.GetHealth(),
-			}
-		}
-		heroes = append(heroes, elems)
+		heroes = append(heroes, hero.GetState())
 	}
 
 	event := contract2.WorldEvent{

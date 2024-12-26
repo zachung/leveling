@@ -6,15 +6,15 @@ import (
 )
 
 var enemiesJsonData = map[string]string{
-	"Enemy1": `{"name": "Enemy1", "Health": 100, "Strength": 1, "mainHand": 0}`,
-	"Enemy2": `{"name": "Enemy2", "Health": 100, "Strength": 1, "mainHand": 0}`,
-	"Enemy3": `{"name": "Enemy3", "Health": 100, "Strength": 1, "mainHand": 0}`,
+	"Enemy1": `{"name": "Enemy1", "Health": 100, "Strength": 1, "mainHand": 0, "position": [50, 50]}`,
+	"Enemy2": `{"name": "Enemy2", "Health": 100, "Strength": 1, "mainHand": 0, "position": [-100, 150]}`,
+	"Enemy3": `{"name": "Enemy3", "Health": 100, "Strength": 1, "mainHand": 0, "position": [50, 100]}`,
 }
 
 var heroJsonData = map[string]string{
-	"Taras": `{"name": "Taras", "Health": 100, "Strength": 8, "mainHand": 2}`,
-	"Sin":   `{"name": "Sin", "Health": 100, "Strength": 2, "mainHand": 1}`,
-	"Brian": `{"name": "Brian", "Health": 100, "Strength": 6, "mainHand": 0}`,
+	"Taras": `{"name": "Taras", "Health": 100, "Strength": 8, "mainHand": 2, "position": [0, 0]}`,
+	"Sin":   `{"name": "Sin", "Health": 100, "Strength": 2, "mainHand": 1, "position": [0, 0]}`,
+	"Brian": `{"name": "Brian", "Health": 100, "Strength": 6, "mainHand": 0, "position": [0, 0]}`,
 }
 
 func GetHeroData() (heroesEntity []dao.Hero) {

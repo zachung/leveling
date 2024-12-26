@@ -7,7 +7,7 @@ type Damage int
 type IHero interface {
 	Update(dt float64) bool
 	IsDie() bool
-	SetNextAction(action *contract2.ActionEvent)
+	SetAction(action contract2.Message)
 	GetName() string
 	GetHealth() int
 	SetTarget(name string)
@@ -17,4 +17,5 @@ type IHero interface {
 	SetSubject(subject Subject)
 	Subject() Subject
 	SetAutoAttack(isAutoAttack bool)
+	GetState() contract2.Hero
 }

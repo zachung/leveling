@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"golang.org/x/image/math/f64"
 	contract2 "leveling/internal/contract"
 	"leveling/internal/server/contract"
 	"leveling/internal/server/repository/dao"
@@ -26,6 +27,11 @@ type Hero struct {
 	subject        contract.Subject
 	isActive       bool
 	isAutoAttack   bool
+
+	// move
+	moveThreshold float64
+	position      f64.Vec2
+	vector        f64.Vec2
 }
 
 func NewRole(data dao.Hero, subject contract.Subject, client contract.Client) contract.IHero {
@@ -38,6 +44,8 @@ func NewRole(data dao.Hero, subject contract.Subject, client contract.Client) co
 		roundCooldown: 0,
 		client:        client,
 		subject:       subject,
+		position:      data.Position,
+		vector:        f64.Vec2{0, 0},
 	}
 
 	return hero
@@ -49,6 +57,7 @@ func (hero *Hero) Update(dt float64) bool {
 	}
 	hero.roundAutoAttack(dt)
 	hero.roundAction(dt)
+	hero.roundMove(dt)
 	isActive := hero.isActive
 	hero.isActive = false
 
@@ -105,8 +114,6 @@ func (hero *Hero) roundAction(dt float64) {
 }
 
 func (hero *Hero) doAction() {
-	hero.nextAction = nil
-
 	if hero.target == nil {
 		return
 	}
@@ -120,9 +127,10 @@ func (hero *Hero) doAction() {
 	target.ApplyDamage(damage)
 	if target.IsDie() {
 		hero.isAutoAttack = false
-		hero.nextAction = nil
 		hero.target = nil
 	}
+	hero.nextAction = nil
+
 	// send message to client
 	messageEvent(hero, damage, target)
 }
@@ -153,24 +161,31 @@ func (hero *Hero) IsDie() bool {
 	return hero.health <= 0
 }
 
-func (hero *Hero) SetNextAction(action *contract2.ActionEvent) {
-	switch action.Id {
-	case 1:
-		if hero.target == nil {
+func (hero *Hero) SetAction(action contract2.Message) {
+	switch action.(type) {
+	case contract2.MoveEvent:
+		event := action.(contract2.MoveEvent)
+		hero.vector = event.Vector
+	case contract2.ActionEvent:
+		event := action.(contract2.ActionEvent)
+		switch event.Id {
+		case contract2.AutoAttack:
+			if hero.target == nil {
+				return
+			}
+			hero.isAutoAttack = !hero.isAutoAttack
+		case contract2.Skill1:
+			if hero.target == nil {
+				return
+			}
+			hero.nextAction = &event
+		case contract2.CancelAction:
+			hero.isAutoAttack = false
+			hero.nextAction = nil
+			hero.target = nil
+		default:
 			return
 		}
-		hero.isAutoAttack = !hero.isAutoAttack
-	case 2:
-		if hero.target == nil {
-			return
-		}
-		hero.nextAction = action
-	case 50:
-		hero.isAutoAttack = false
-		hero.nextAction = nil
-		hero.target = nil
-	default:
-		return
 	}
 	hero.isActive = true
 	hero.subject.Notify(hero.getCurrentState())
@@ -220,6 +235,7 @@ func (hero *Hero) getCurrentState() contract2.StateChangeEvent {
 		Name:         hero.name,
 		Health:       hero.health,
 		IsAutoAttack: hero.isAutoAttack,
+		Position:     hero.position,
 	}
 	if hero.nextAction != nil {
 		event.Action = *hero.nextAction
@@ -236,4 +252,35 @@ func (hero *Hero) getCurrentState() contract2.StateChangeEvent {
 
 func (hero *Hero) SetAutoAttack(isAutoAttack bool) {
 	hero.isAutoAttack = isAutoAttack
+}
+
+func (hero *Hero) roundMove(dt float64) {
+	hero.moveThreshold += dt
+	if hero.moveThreshold <= 0.03 {
+		return
+	}
+	var dv float64
+	hero.moveThreshold, dv = 0, hero.moveThreshold
+	if hero.vector[0] == 0 && hero.vector[1] == 0 {
+		return
+	}
+	hero.position[0] += hero.vector[0] * dv * 160
+	hero.position[1] += hero.vector[1] * dv * 160
+	hero.isActive = true
+	hero.subject.Notify(hero.getCurrentState())
+}
+
+func (hero *Hero) GetState() contract2.Hero {
+	var h contract2.Hero
+	h.Name = hero.name
+	h.Health = hero.health
+	h.Position = hero.position
+	if hero.target != nil {
+		h.Target = &contract2.Hero{
+			Name:   hero.target.GetName(),
+			Health: hero.target.GetHealth(),
+		}
+	}
+
+	return h
 }

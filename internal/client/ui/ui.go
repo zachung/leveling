@@ -66,7 +66,7 @@ func (u *UI) State() contract.State {
 }
 
 func (u *UI) World() contract.World {
-	return contract.World(u.game.world)
+	return nil
 }
 
 func (u *UI) Report() contract.Panel {

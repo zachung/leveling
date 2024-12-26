@@ -13,6 +13,7 @@ const (
 	MakeDamage
 	HeroDie
 	Action
+	Move
 	World
 	SelectTarget
 )
@@ -59,6 +60,10 @@ func UnSerialize(bytes []byte) Message {
 		return message
 	case SelectTarget:
 		var message SelectTargetEvent
+		json.Unmarshal(bytes, &message)
+		return message
+	case Move:
+		var message MoveEvent
 		json.Unmarshal(bytes, &message)
 		return message
 	default:

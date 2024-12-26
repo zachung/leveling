@@ -60,8 +60,9 @@ func (h *Hub) SendAction(client contract.Client, action contract2.Message) {
 	iHero := h.clients[c]
 	switch action.(type) {
 	case contract2.ActionEvent:
-		event := action.(contract2.ActionEvent)
-		iHero.SetNextAction(&event)
+		iHero.SetAction(action)
+	case contract2.MoveEvent:
+		iHero.SetAction(action)
 	case contract2.SelectTargetEvent:
 		event := action.(contract2.SelectTargetEvent)
 		iHero.SetTarget(event.Name)

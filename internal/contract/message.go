@@ -1,5 +1,7 @@
 package contract
 
+import "golang.org/x/image/math/f64"
+
 type Message interface {
 	Serialize() []byte
 }
@@ -10,8 +12,14 @@ type Event struct {
 }
 
 type ActionEvent struct {
-	Event `json:"event,omitempty"`
-	Id    int `json:"id"`
+	Event    `json:"event,omitempty"`
+	Id       KeyFunc `json:"id"`
+	IsCancel bool    `json:"is_cancel"`
+}
+
+type MoveEvent struct {
+	Event  `json:"event,omitempty"`
+	Vector f64.Vec2 `json:"vector"`
 }
 
 type StateChangeEvent struct {
@@ -19,6 +27,7 @@ type StateChangeEvent struct {
 	Name         string      `json:"name"`
 	Health       int         `json:"health"`
 	IsAutoAttack bool        `json:"isAutoAttack"`
+	Position     f64.Vec2    `json:"position"`
 	Action       ActionEvent `json:"action,omitempty"`
 	Damage       int         `json:"damage,omitempty"`
 	Target       Hero        `json:"target,omitempty"`
@@ -43,9 +52,10 @@ type HeroDieEvent struct {
 }
 
 type Hero struct {
-	Name   string `json:"name"`
-	Health int    `json:"health"`
-	Target *Hero  `json:"target,omitempty"`
+	Name     string   `json:"name"`
+	Health   int      `json:"health"`
+	Position f64.Vec2 `json:"position,omitempty"`
+	Target   *Hero    `json:"target,omitempty"`
 }
 
 type WorldEvent struct {

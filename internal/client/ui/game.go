@@ -9,9 +9,11 @@ import (
 )
 
 type Game struct {
-	state *State
-	world *World
-	ui    *ebitenui.UI
+	state    *State
+	worldMap *World
+	ui       *ebitenui.UI
+	world    *ebiten.Image
+	camera   Camera
 }
 
 func NewGame() *Game {
@@ -23,16 +25,33 @@ func NewGame() *Game {
 		ui: &ui,
 	}
 	game.state = newState()
-	game.world = newWorld()
-	container.AddChild(game.world.list)
+	game.worldMap = newWorld()
+	game.world = ebiten.NewImage(screenWidth, screenHeight)
 
 	return &game
 }
 
+var keyHandler = keys.NewMove(keys.NewAction(keys.NewSwitchTarget(nil)))
+
 func (g *Game) Update() error {
 	// update the UI
 	g.ui.Update()
-	keys.NewRune(keys.NewSwitchTarget(nil)).Execute()
+	keyHandler.Execute()
+
+	if ebiten.IsKeyPressed(ebiten.KeyQ) {
+		if g.camera.ZoomFactor > -2400 {
+			g.camera.ZoomFactor -= 1
+		}
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyE) {
+		if g.camera.ZoomFactor < 2400 {
+			g.camera.ZoomFactor += 1
+		}
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeySpace) {
+		g.camera.Reset()
+	}
 
 	return nil
 }
@@ -41,9 +60,20 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	g.ui.Draw(screen)
 
 	g.state.Draw(screen)
-	g.world.Draw(screen)
+	g.world.Clear()
+	g.worldMap.Draw(g.world)
+	g.camera.Render(g.world, screen)
 
-	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("TPS: %0.2f", ebiten.ActualTPS()), 0, 0)
+	ebitenutil.DebugPrint(screen, fmt.Sprintf("TPS: %0.2f", ebiten.ActualTPS()))
+
+	worldX, worldY := g.camera.ScreenToWorld(ebiten.CursorPosition())
+	ebitenutil.DebugPrintAt(
+		screen,
+		fmt.Sprintf("%s\nCursor World Pos: %.2f,%.2f",
+			g.camera.String(),
+			worldX, worldY),
+		0, screenHeight-32,
+	)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
