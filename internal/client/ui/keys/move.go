@@ -38,6 +38,9 @@ func (m Move) handleEvent() *ebiten.Key {
 			vec[0] += 1
 		}
 	}
+	state := service.EventBus().GetState()
+	state.Vector = vec
+	service.EventBus().SetState(state)
 	if vec != curVec {
 		curVec = vec
 		event := contract2.MoveEvent{Event: contract2.Event{Type: contract2.Move}, Vector: vec}

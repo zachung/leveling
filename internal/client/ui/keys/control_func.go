@@ -5,8 +5,8 @@ import (
 	"leveling/internal/contract"
 )
 
-var KeyMap = map[ebiten.Key]contract.KeyFunc{
-	ebiten.Key1:      contract.AutoAttack,
+var KeyMap = map[ebiten.Key]contract.RoleEvent{
+	ebiten.Key1:      contract.SetAutoAttack,
 	ebiten.Key2:      contract.Skill1,
 	ebiten.Key3:      contract.Skill2,
 	ebiten.KeyW:      contract.Up,

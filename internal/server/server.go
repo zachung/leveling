@@ -103,12 +103,8 @@ func (s *Server) gameLoop() {
 			return
 		}
 		dt -= MaxDtMs
-		s.gameUpdate(float64(MaxDtMs) / 1000)
+		s.round.round(float64(MaxDtMs) / 1000)
 	}
-}
-
-func (s *Server) gameUpdate(dt float64) {
-	s.round.round(dt)
 }
 
 func (s *Server) Stop() {

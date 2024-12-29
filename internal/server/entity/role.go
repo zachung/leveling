@@ -14,24 +14,25 @@ const (
 )
 
 type Hero struct {
-	name           string
-	health         int
-	strength       int
-	mainHand       contract.IWeapon
-	attackCooldown float64 // weapon auto attack cooldown
-	roundCooldown  float64
-	client         contract.Client
-	nextAction     *contract2.ActionEvent
-	target         contract.IHero
-	round          contract.Round
-	subject        contract.Subject
-	isActive       bool
-	isAutoAttack   bool
+	name          string
+	health        int
+	strength      int
+	mainHand      contract.IWeapon
+	roundCooldown float64
+	client        contract.Client
+	target        contract.IHero
+	round         contract.Round
+	subject       contract.Subject
+	isActive      bool
+
+	// operations
+	operations map[contract2.RoleEvent][]func(...any)
+
+	// abilities
+	abilities map[AbilityType]Ability
 
 	// move
-	moveThreshold float64
-	position      f64.Vec2
-	vector        f64.Vec2
+	position f64.Vec2
 }
 
 func NewRole(data dao.Hero, subject contract.Subject, client contract.Client) contract.IHero {
@@ -45,8 +46,13 @@ func NewRole(data dao.Hero, subject contract.Subject, client contract.Client) co
 		client:        client,
 		subject:       subject,
 		position:      data.Position,
-		vector:        f64.Vec2{0, 0},
+		operations:    make(map[contract2.RoleEvent][]func(...any)),
+		abilities:     make(map[AbilityType]Ability),
 	}
+	// TODO: hero.position & vector move to MoveAbility
+	hero.abilities[AutoAttack] = NewAutoAttackAbility(hero)
+	hero.abilities[Action] = NewActionAbility(hero)
+	hero.abilities[Movement] = NewMoveAbility(hero)
 
 	return hero
 }
@@ -55,84 +61,14 @@ func (hero *Hero) Update(dt float64) bool {
 	if hero.IsDie() {
 		return false
 	}
-	hero.roundAutoAttack(dt)
-	hero.roundAction(dt)
-	hero.roundMove(dt)
+	for _, a := range hero.abilities {
+		a.Update(dt)
+	}
+
 	isActive := hero.isActive
 	hero.isActive = false
 
 	return isActive
-}
-
-func (hero *Hero) roundAutoAttack(dt float64) {
-	hero.attackCooldown += dt / hero.mainHand.GetSpeed()
-	for {
-		if hero.attackCooldown < roundTimeSecond {
-			return
-		}
-		hero.attackCooldown -= roundTimeSecond
-		hero.doAutoAttack()
-	}
-}
-
-func (hero *Hero) doAutoAttack() {
-	if !hero.isAutoAttack {
-		return
-	}
-	if hero.target == nil {
-		hero.isAutoAttack = false
-		return
-	}
-	target := hero.target.(*Hero)
-	if target.IsDie() {
-		hero.isAutoAttack = false
-		hero.target = nil
-		return
-	}
-	hero.isActive = true
-	damage := contract.Damage(hero.mainHand.GetPower())
-	target.ApplyDamage(damage)
-	if target.IsDie() {
-		hero.isAutoAttack = false
-		hero.nextAction = nil
-		hero.target = nil
-	}
-	// send message to client
-	messageEvent(hero, damage, target)
-}
-
-func (hero *Hero) roundAction(dt float64) {
-	hero.roundCooldown += dt
-	if hero.roundCooldown < globalCoolDown {
-		return
-	}
-	if hero.nextAction == nil {
-		return
-	}
-	hero.roundCooldown = 0
-	hero.doAction()
-}
-
-func (hero *Hero) doAction() {
-	if hero.target == nil {
-		return
-	}
-	target := hero.target.(*Hero)
-	if target.IsDie() {
-		hero.target = nil
-		return
-	}
-	hero.isActive = true
-	damage := contract.Damage(hero.mainHand.GetPower() + hero.strength)
-	target.ApplyDamage(damage)
-	if target.IsDie() {
-		hero.isAutoAttack = false
-		hero.target = nil
-	}
-	hero.nextAction = nil
-
-	// send message to client
-	messageEvent(hero, damage, target)
 }
 
 func messageEvent(from *Hero, damage contract.Damage, to *Hero) {
@@ -165,23 +101,23 @@ func (hero *Hero) SetAction(action contract2.Message) {
 	switch action.(type) {
 	case contract2.MoveEvent:
 		event := action.(contract2.MoveEvent)
-		hero.vector = event.Vector
+		// TODO: Right 只是暫時寫的
+		for _, f := range hero.operations[contract2.Right] {
+			f(event)
+		}
 	case contract2.ActionEvent:
 		event := action.(contract2.ActionEvent)
+		for _, f := range hero.operations[event.Id] {
+			f(!event.IsEnable)
+		}
 		switch event.Id {
-		case contract2.AutoAttack:
-			if hero.target == nil {
-				return
-			}
-			hero.isAutoAttack = !hero.isAutoAttack
 		case contract2.Skill1:
 			if hero.target == nil {
 				return
 			}
-			hero.nextAction = &event
+			hero.abilities[Action].(*ActionAbility).nextAction = &event
 		case contract2.CancelAction:
-			hero.isAutoAttack = false
-			hero.nextAction = nil
+			hero.abilities[Action].(*ActionAbility).nextAction = nil
 			hero.target = nil
 		default:
 			return
@@ -234,11 +170,13 @@ func (hero *Hero) getCurrentState() contract2.StateChangeEvent {
 		},
 		Name:         hero.name,
 		Health:       hero.health,
-		IsAutoAttack: hero.isAutoAttack,
+		IsAutoAttack: hero.abilities[AutoAttack].(*AutoAttackAbility).isAutoAttack,
 		Position:     hero.position,
+		Vector:       hero.abilities[Movement].(*MoveAbility).vector,
 	}
-	if hero.nextAction != nil {
-		event.Action = *hero.nextAction
+	action := hero.abilities[Action].(*ActionAbility).nextAction
+	if action != nil {
+		event.Action = *action
 	}
 	if hero.target != nil {
 		event.Target = contract2.Hero{
@@ -250,31 +188,12 @@ func (hero *Hero) getCurrentState() contract2.StateChangeEvent {
 	return event
 }
 
-func (hero *Hero) SetAutoAttack(isAutoAttack bool) {
-	hero.isAutoAttack = isAutoAttack
-}
-
-func (hero *Hero) roundMove(dt float64) {
-	hero.moveThreshold += dt
-	if hero.moveThreshold <= 0.03 {
-		return
-	}
-	var dv float64
-	hero.moveThreshold, dv = 0, hero.moveThreshold
-	if hero.vector[0] == 0 && hero.vector[1] == 0 {
-		return
-	}
-	hero.position[0] += hero.vector[0] * dv * 160
-	hero.position[1] += hero.vector[1] * dv * 160
-	hero.isActive = true
-	hero.subject.Notify(hero.getCurrentState())
-}
-
 func (hero *Hero) GetState() contract2.Hero {
 	var h contract2.Hero
 	h.Name = hero.name
 	h.Health = hero.health
 	h.Position = hero.position
+	h.Vector = hero.abilities[Movement].(*MoveAbility).vector
 	if hero.target != nil {
 		h.Target = &contract2.Hero{
 			Name:   hero.target.GetName(),
@@ -283,4 +202,8 @@ func (hero *Hero) GetState() contract2.Hero {
 	}
 
 	return h
+}
+
+func (hero *Hero) AddOperationListener(k contract2.RoleEvent, f func(...any)) {
+	hero.operations[k] = append(hero.operations[k], f)
 }

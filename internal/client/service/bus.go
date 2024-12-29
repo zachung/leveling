@@ -52,7 +52,10 @@ func (b *Bus) SelectNext() {
 	selfName := b.stateEvent.Name
 	curSelect := b.stateEvent.Target.Name
 	isFound := false
-	heroes := b.worldEvent.Heroes
+	heroes := make([]contract.Hero, count)
+	for _, hero := range b.worldEvent.Heroes {
+		heroes = append(heroes, hero)
+	}
 	i := 0
 	r := 0
 	for {
@@ -67,7 +70,7 @@ func (b *Bus) SelectNext() {
 			isFound = true
 		}
 		if !isFound {
-			hero := b.worldEvent.Heroes[i]
+			hero := heroes[i]
 			if hero.Name == curSelect {
 				isFound = true
 			}

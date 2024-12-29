@@ -16,6 +16,6 @@ type IHero interface {
 	ApplyDamage(damage Damage)
 	SetSubject(subject Subject)
 	Subject() Subject
-	SetAutoAttack(isAutoAttack bool)
 	GetState() contract2.Hero
+	AddOperationListener(k contract2.RoleEvent, f func(...any))
 }

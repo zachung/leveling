@@ -12,22 +12,10 @@ type UI interface {
 	Run()
 	Stop()
 	State() State
-	World() World
-	Report() Panel
 }
 
 type State interface {
 	UpdateState(event contract.StateChangeEvent)
-}
-
-type Panel interface {
-	Focus()
-}
-
-type World interface {
-	Panel
-	UpdateWorld(event contract.WorldEvent)
-	SelectNext()
 }
 
 type Controller interface {

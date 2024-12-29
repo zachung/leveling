@@ -1,9 +1,9 @@
 package contract
 
-type KeyFunc int
+type RoleEvent int
 
 const (
-	AutoAttack KeyFunc = iota
+	SetAutoAttack RoleEvent = iota
 	SwitchTarget
 	Skill1
 	Skill2

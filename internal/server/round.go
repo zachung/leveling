@@ -12,11 +12,10 @@ import (
 )
 
 type Round struct {
-	isDone       bool
-	heroes       map[string]contract.IHero
-	keys         map[*connection.Client]contract.IHero
-	events       chan func()
-	roundChanged bool
+	isDone bool
+	heroes map[string]contract.IHero
+	keys   map[*connection.Client]contract.IHero
+	events chan func()
 }
 
 func NewRound(heroes []contract.IHero) *Round {
@@ -36,9 +35,19 @@ func NewRound(heroes []contract.IHero) *Round {
 
 func (r *Round) round(dt float64) {
 	var wg sync.WaitGroup
+	mu := &sync.Mutex{}
+	heroes := make(map[string]contract.IHero)
 	for _, h := range r.heroes {
 		wg.Add(1)
-		go r.updateEntity(dt, &wg, h)
+		go func() {
+			defer wg.Done()
+
+			if h.Update(dt) {
+				mu.Lock()
+				heroes[h.GetName()] = h
+				mu.Unlock()
+			}
+		}()
 	}
 	wg.Wait()
 
@@ -47,25 +56,9 @@ func (r *Round) round(dt float64) {
 		case event := <-r.events:
 			event()
 		default:
-			r.afterRound()
+			r.broadcastHeroes(heroes)
 			return
 		}
-	}
-}
-
-func (r *Round) afterRound() {
-	if r.roundChanged {
-		r.broadcastHeroes()
-	}
-	r.roundChanged = false
-}
-
-func (r *Round) updateEntity(dt float64, wg *sync.WaitGroup, self contract.IHero) {
-	defer wg.Done()
-
-	// 選擇攻擊目標
-	if self.Update(dt) {
-		r.roundChanged = true
 	}
 }
 
@@ -84,6 +77,7 @@ func (r *Round) AddHero(client contract.Client) contract.IHero {
 			hero.SetSubject(subject)
 			hero.SetRound(r)
 
+			r.broadcastHeroes(r.heroes)
 			r.keys[c] = hero
 			r.heroes[hero.GetName()] = hero
 			event := contract2.StateChangeEvent{
@@ -94,7 +88,6 @@ func (r *Round) AddHero(client contract.Client) contract.IHero {
 				Health: hero.GetHealth(),
 			}
 			hero.Subject().Notify(event)
-			r.roundChanged = true
 			service.Logger().Info("%s arrived, current %d.\n", hero.GetName(), len(r.keys))
 		}
 	}()
@@ -109,17 +102,16 @@ func (r *Round) RemoveHero(client contract.Client) {
 			hero := r.keys[c]
 			delete(r.heroes, hero.GetName())
 			delete(r.keys, c)
-			r.roundChanged = true
 			client.Close()
 			service.Logger().Info("Bye bye %s, now %d.\n", hero.GetName(), len(r.keys))
 		}
 	}()
 }
 
-func (r *Round) broadcastHeroes() {
-	var heroes []contract2.Hero
-	for _, hero := range r.heroes {
-		heroes = append(heroes, hero.GetState())
+func (r *Round) broadcastHeroes(iHeroes map[string]contract.IHero) {
+	var heroes = make(map[string]contract2.Hero)
+	for _, hero := range iHeroes {
+		heroes[hero.GetName()] = hero.GetState()
 	}
 
 	event := contract2.WorldEvent{

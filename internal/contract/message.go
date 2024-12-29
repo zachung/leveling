@@ -13,8 +13,8 @@ type Event struct {
 
 type ActionEvent struct {
 	Event    `json:"event,omitempty"`
-	Id       KeyFunc `json:"id"`
-	IsCancel bool    `json:"is_cancel"`
+	Id       RoleEvent `json:"id"`
+	IsEnable bool      `json:"is_cancel"`
 }
 
 type MoveEvent struct {
@@ -28,6 +28,7 @@ type StateChangeEvent struct {
 	Health       int         `json:"health"`
 	IsAutoAttack bool        `json:"isAutoAttack"`
 	Position     f64.Vec2    `json:"position"`
+	Vector       f64.Vec2    `json:"vector"`
 	Action       ActionEvent `json:"action,omitempty"`
 	Damage       int         `json:"damage,omitempty"`
 	Target       Hero        `json:"target,omitempty"`
@@ -55,12 +56,13 @@ type Hero struct {
 	Name     string   `json:"name"`
 	Health   int      `json:"health"`
 	Position f64.Vec2 `json:"position,omitempty"`
+	Vector   f64.Vec2 `json:"vector,omitempty"`
 	Target   *Hero    `json:"target,omitempty"`
 }
 
 type WorldEvent struct {
 	Event  `json:"event,omitempty"`
-	Heroes []Hero `json:"heroes,omitempty"`
+	Heroes map[string]Hero `json:"heroes,omitempty"`
 }
 
 type SelectTargetEvent struct {

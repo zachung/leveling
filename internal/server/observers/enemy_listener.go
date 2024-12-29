@@ -19,7 +19,10 @@ func (e EnemyListener) OnNotify(event contract2.Message) {
 	case contract2.GetHurtEvent:
 		hurtEvent := event.(contract2.GetHurtEvent)
 		e.hero.SetTarget(hurtEvent.From.Name)
-		e.hero.SetAutoAttack(true)
+		spell := contract2.ActionEvent{Event: contract2.Event{Type: contract2.Action}}
+		spell.Id = contract2.SetAutoAttack
+		spell.IsEnable = true
+		e.hero.SetAction(spell)
 		log.Infof("%v target %s", e.hero.GetName(), hurtEvent.From.Name)
 	}
 }

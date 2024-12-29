@@ -36,6 +36,7 @@ var keyHandler = keys.NewMove(keys.NewAction(keys.NewSwitchTarget(nil)))
 func (g *Game) Update() error {
 	// update the UI
 	g.ui.Update()
+	g.worldMap.Update()
 	keyHandler.Execute()
 
 	if ebiten.IsKeyPressed(ebiten.KeyQ) {
@@ -60,8 +61,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	g.ui.Draw(screen)
 
 	g.state.Draw(screen)
-	g.world.Clear()
-	g.worldMap.Draw(g.world)
+	g.worldMap.Draw(screen)
 	g.camera.Render(g.world, screen)
 
 	ebitenutil.DebugPrint(screen, fmt.Sprintf("TPS: %0.2f", ebiten.ActualTPS()))

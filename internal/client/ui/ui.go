@@ -65,14 +65,6 @@ func (u *UI) State() contract.State {
 	return contract.State(u.game.state)
 }
 
-func (u *UI) World() contract.World {
-	return nil
-}
-
-func (u *UI) Report() contract.Panel {
-	return nil
-}
-
 type Chat struct {
 	text string
 }
