@@ -84,8 +84,10 @@ func (r *Round) AddHero(client contract.Client) contract.IHero {
 				Event: contract2.Event{
 					Type: contract2.StateChange,
 				},
-				Name:   hero.GetName(),
-				Health: hero.GetHealth(),
+				Hero: contract2.Hero{
+					Name:   hero.GetName(),
+					Health: hero.GetHealth(),
+				},
 			}
 			hero.Subject().Notify(event)
 			service.Logger().Info("%s arrived, current %d.\n", hero.GetName(), len(r.keys))

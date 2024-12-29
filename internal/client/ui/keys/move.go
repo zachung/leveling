@@ -39,7 +39,7 @@ func (m Move) handleEvent() *ebiten.Key {
 		}
 	}
 	state := service.EventBus().GetState()
-	state.Vector = vec
+	state.Hero.Vector = vec
 	service.EventBus().SetState(state)
 	if vec != curVec {
 		curVec = vec

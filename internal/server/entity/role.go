@@ -164,25 +164,17 @@ func (hero *Hero) Subject() contract.Subject {
 }
 
 func (hero *Hero) getCurrentState() contract2.StateChangeEvent {
+	state := hero.GetState()
 	event := contract2.StateChangeEvent{
 		Event: contract2.Event{
 			Type: contract2.StateChange,
 		},
-		Name:         hero.name,
-		Health:       hero.health,
+		Hero:         state,
 		IsAutoAttack: hero.abilities[AutoAttack].(*AutoAttackAbility).isAutoAttack,
-		Position:     hero.position,
-		Vector:       hero.abilities[Movement].(*MoveAbility).vector,
 	}
 	action := hero.abilities[Action].(*ActionAbility).nextAction
 	if action != nil {
 		event.Action = *action
-	}
-	if hero.target != nil {
-		event.Target = contract2.Hero{
-			Name:   hero.target.GetName(),
-			Health: hero.target.GetHealth(),
-		}
 	}
 
 	return event

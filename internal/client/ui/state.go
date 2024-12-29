@@ -9,7 +9,6 @@ import (
 	"leveling/internal/client/service"
 	"leveling/internal/contract"
 	"strconv"
-	"time"
 )
 
 var (
@@ -50,14 +49,6 @@ func (s *State) UpdateState(event contract.StateChangeEvent) {
 
 func (s *State) Draw(dst *ebiten.Image) {
 	event := service.EventBus().GetState()
-	// self health
-	if event.Damage > 0 {
-		s.isWarning = true
-		go func() {
-			time.Sleep(100 * time.Millisecond)
-			s.isWarning = false
-		}()
-	}
 
 	// auto attack
 	if event.IsAutoAttack {

@@ -114,9 +114,9 @@ func newHeadContainer() *widget.Container {
 	bus := service.EventBus()
 	bus.AddObserver(contract.OnStateChanged, func() {
 		event := bus.GetState()
-		labelHealth.Label = fmt.Sprintf("%v: %d", event.Name, event.Health)
-		if event.Target.Name != "" {
-			labelTarget.Label = fmt.Sprintf("%v: %d", event.Target.Name, event.Target.Health)
+		labelHealth.Label = fmt.Sprintf("%v: %d", event.Hero.Name, event.Hero.Health)
+		if event.Hero.Target != nil {
+			labelTarget.Label = fmt.Sprintf("%v: %d", event.Hero.Target.Name, event.Hero.Target.Health)
 		} else {
 			labelTarget.Label = ""
 		}

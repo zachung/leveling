@@ -72,7 +72,7 @@ func receiveHandler(connection *websocket.Conn, name string) {
 			var message string
 			if event.Name == name {
 				message = "[color=ff0000]You Died[/color].\n"
-				service.EventBus().SetState(contract2.StateChangeEvent{Name: name, Health: 0})
+				service.EventBus().SetState(contract2.StateChangeEvent{Hero: contract2.Hero{Name: name, Health: 0}})
 			} else {
 				message = fmt.Sprintf("%v is Died.\n", event.Name)
 			}

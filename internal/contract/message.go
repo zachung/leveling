@@ -24,15 +24,9 @@ type MoveEvent struct {
 
 type StateChangeEvent struct {
 	Event        `json:"event,omitempty"`
-	Name         string      `json:"name"`
-	Health       int         `json:"health"`
+	Hero         Hero        `json:"hero,omitempty"`
 	IsAutoAttack bool        `json:"isAutoAttack"`
-	Position     f64.Vec2    `json:"position"`
-	Vector       f64.Vec2    `json:"vector"`
 	Action       ActionEvent `json:"action,omitempty"`
-	Damage       int         `json:"damage,omitempty"`
-	Target       Hero        `json:"target,omitempty"`
-	Attacker     Hero        `json:"attacker,omitempty"`
 }
 
 type GetHurtEvent struct {
