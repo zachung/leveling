@@ -4,6 +4,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	log "github.com/sirupsen/logrus"
 	"image/color"
 	contract2 "leveling/internal/client/contract"
 	"leveling/internal/client/service"
@@ -35,6 +36,10 @@ func newWorld() *World {
 			w.timePasted[hero.Name] = time.Now()
 			service.Chat().Info("server %v\n", hero.Position)
 		}
+	})
+	// select hero
+	service.EventBus().AddObserver(contract2.OnSelectTarget, func() {
+		w.selectNext()
 	})
 
 	return w
@@ -85,4 +90,60 @@ func (w *World) draw(dst *ebiten.Image, hero *contract.Hero) {
 		Source: contract2.UiFaceSource,
 		Size:   contract2.NormalFontSize,
 	}, textOp)
+}
+
+func (w *World) selectNext() {
+	count := len(w.heroes)
+	if count == 0 {
+		return
+	}
+	stateEvent := service.EventBus().GetState()
+	selfName := stateEvent.Hero.Name
+	var curSelect string
+	if stateEvent.Hero.Target != nil {
+		curSelect = stateEvent.Hero.Target.Name
+	}
+	isFound := false
+	heroes := make([]contract.Hero, 0)
+	for _, hero := range w.heroes {
+		heroes = append(heroes, *hero)
+	}
+	i := 0
+	r := 0
+	for {
+		if r == 1 && i >= count {
+			break
+		}
+		if i >= count {
+			i = 0
+			r = 1
+		}
+		if curSelect == "" {
+			isFound = true
+		}
+		if !isFound {
+			hero := heroes[i]
+			if hero.Name == curSelect {
+				isFound = true
+			}
+		} else {
+			hero := heroes[i]
+			if hero.Name != selfName && hero.Health > 0 {
+				selectTarget(hero.Name)
+				break
+			}
+		}
+		i++
+	}
+}
+
+func selectTarget(name string) {
+	log.Infof("%v\n", name)
+	event := contract.SelectTargetEvent{
+		Event: contract.Event{
+			Type: contract.SelectTarget,
+		},
+		Name: name,
+	}
+	service.Controller().Send(event)
 }

@@ -77,7 +77,6 @@ func (r *Round) AddHero(client contract.Client) contract.IHero {
 			hero.SetSubject(subject)
 			hero.SetRound(r)
 
-			r.broadcastHeroes(r.heroes)
 			r.keys[c] = hero
 			r.heroes[hero.GetName()] = hero
 			event := contract2.StateChangeEvent{
@@ -91,6 +90,7 @@ func (r *Round) AddHero(client contract.Client) contract.IHero {
 			}
 			hero.Subject().Notify(event)
 			service.Logger().Info("%s arrived, current %d.\n", hero.GetName(), len(r.keys))
+			r.broadcastHeroes(r.heroes)
 		}
 	}()
 

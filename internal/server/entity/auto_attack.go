@@ -17,7 +17,11 @@ func NewAutoAttackAbility(hero *Hero) Ability {
 		if hero.target == nil {
 			return
 		}
-		a.isAutoAttack = args[0].(bool)
+		if len(args) == 0 {
+			a.isAutoAttack = !a.isAutoAttack
+		} else {
+			a.isAutoAttack = args[0].(bool)
+		}
 	})
 	hero.AddOperationListener(contract2.CancelAction, func(...any) {
 		a.isAutoAttack = false

@@ -37,6 +37,7 @@ const (
 	OnStateChanged BusEvent = iota
 	OnWorldChanged
 	OnReportAppend
+	OnSelectTarget
 )
 
 type Bus interface {

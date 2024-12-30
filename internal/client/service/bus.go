@@ -45,53 +45,9 @@ func (b *Bus) GetWorldState() contract.WorldEvent {
 }
 
 func (b *Bus) SelectNext() {
-	count := len(b.worldEvent.Heroes)
-	if count == 0 {
-		return
+	for _, f := range b.observers[contract2.OnSelectTarget] {
+		f()
 	}
-	selfName := b.stateEvent.Hero.Name
-	curSelect := b.stateEvent.Hero.Target.Name
-	isFound := false
-	heroes := make([]contract.Hero, count)
-	for _, hero := range b.worldEvent.Heroes {
-		heroes = append(heroes, hero)
-	}
-	i := 0
-	r := 0
-	for {
-		if r == 1 && i >= count {
-			break
-		}
-		if i >= count {
-			i = 0
-			r = 1
-		}
-		if curSelect == "" {
-			isFound = true
-		}
-		if !isFound {
-			hero := heroes[i]
-			if hero.Name == curSelect {
-				isFound = true
-			}
-		} else {
-			if heroes[i].Name != selfName && heroes[i].Health > 0 {
-				selectTarget(heroes[i].Name)
-				break
-			}
-		}
-		i++
-	}
-}
-
-func selectTarget(name string) {
-	event := contract.SelectTargetEvent{
-		Event: contract.Event{
-			Type: contract.SelectTarget,
-		},
-		Name: name,
-	}
-	Controller().Send(event)
 }
 
 func (b *Bus) AppendReport(text string) {

@@ -108,7 +108,11 @@ func (hero *Hero) SetAction(action contract2.Message) {
 	case contract2.ActionEvent:
 		event := action.(contract2.ActionEvent)
 		for _, f := range hero.operations[event.Id] {
-			f(!event.IsEnable)
+			if event.IsEnable {
+				f(event.IsEnable)
+			} else {
+				f()
+			}
 		}
 		switch event.Id {
 		case contract2.Skill1:
