@@ -5,6 +5,8 @@ import (
 	"github.com/ebitenui/ebitenui"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	log "github.com/sirupsen/logrus"
+	"leveling/internal/client/service"
 	"leveling/internal/client/ui/keys"
 )
 
@@ -38,6 +40,10 @@ func (g *Game) Update() error {
 	g.ui.Update()
 	g.worldMap.Update()
 	keyHandler.Execute()
+	if g.worldMap.heroes[service.EventBus().GetState().Hero.Name] != nil {
+		g.camera.Position = g.worldMap.heroes[service.EventBus().GetState().Hero.Name].Position
+		log.Infof("%v\n", g.camera.Position)
+	}
 
 	if ebiten.IsKeyPressed(ebiten.KeyQ) {
 		if g.camera.ZoomFactor > -2400 {
@@ -61,7 +67,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	g.ui.Draw(screen)
 
 	g.state.Draw(screen)
-	g.worldMap.Draw(screen)
+	g.world.Clear()
+	g.worldMap.Draw(g.world)
 	g.camera.Render(g.world, screen)
 
 	ebitenutil.DebugPrint(screen, fmt.Sprintf("TPS: %0.2f", ebiten.ActualTPS()))
