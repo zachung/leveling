@@ -25,8 +25,8 @@ type State struct {
 
 func newState() *State {
 	const skillCount = 10
-	x := (screenWidth - (skillBoxSize+skillStrokeWidth*2)*skillCount) / 2
-	y := screenHeight - skillBoxSize - skillStrokeWidth*2
+	x := (contract2.ScreenWidth - (skillBoxSize+skillStrokeWidth*2)*skillCount) / 2
+	y := contract2.ScreenHeight - skillBoxSize - skillStrokeWidth*2
 
 	var skills []*SkillBox
 	for i := 0; i < skillCount; i++ {

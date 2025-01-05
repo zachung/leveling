@@ -10,7 +10,11 @@ import (
 var UiFaceSource *text.GoTextFaceSource
 var UiTextFace *text.GoTextFace
 
-const NormalFontSize = 16
+const (
+	ScreenWidth    = 640
+	ScreenHeight   = 480
+	NormalFontSize = 16
+)
 
 func init() {
 	s, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))

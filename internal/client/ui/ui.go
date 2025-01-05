@@ -9,11 +9,6 @@ import (
 	"log"
 )
 
-const (
-	screenWidth  = 1024
-	screenHeight = 768
-)
-
 type UI struct {
 	game *Game
 }
@@ -45,7 +40,7 @@ func (u *UI) Run() {
 
 	game := NewGame()
 
-	ebiten.SetWindowSize(screenWidth, screenHeight)
+	ebiten.SetWindowSize(contract.ScreenWidth, contract.ScreenHeight)
 	ebiten.SetWindowTitle("Leveling")
 
 	// run Ebiten main loop

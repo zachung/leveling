@@ -94,7 +94,7 @@ func (s *Server) gameLoop() {
 	dt := milliseconds * s.speed
 
 	defer func() {
-		s.lastTime = now
+		s.lastTime = now.Add(-time.Duration(dt) * time.Millisecond)
 	}()
 
 	for {

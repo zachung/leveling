@@ -30,10 +30,7 @@ func newWorld() *World {
 		state := service.EventBus().GetWorldState()
 		for _, hero := range state.Heroes {
 			w.heroes[hero.Name] = &hero
-			if w.roles[hero.Name] == nil {
-				w.roles[hero.Name] = object.NewRole(hero.Name)
-			}
-			service.Chat().Info("server %v\n", hero.Position)
+			w.roles[hero.Name] = object.NewRole(hero)
 		}
 	})
 	// select hero
@@ -49,24 +46,13 @@ var lastUpdate time.Time
 
 func (w *World) Update() {
 	now := utils.Now()
-	milliseconds := int32(now.Sub(lastUpdate).Milliseconds())
-	dt := milliseconds * 1
-	if dt < 16 {
-		return
-	}
-	dv := float64(dt) / 1000
+	dt := int32(now.Sub(lastUpdate).Milliseconds())
+	dv := float64(dt) / 1000 * 160
 	for _, hero := range w.heroes {
 		// 在 server 真正回傳實際位置之前，預判位置
-		// FIXME: client 預判的位置總會超出 server
-		hero.Position[0] += hero.Vector[0] * dv * 160
-		hero.Position[1] += hero.Vector[1] * dv * 160
+		hero.Position[0] += hero.Vector[0] * dv
+		hero.Position[1] += hero.Vector[1] * dv
 		w.roles[hero.Name].Position = hero.Position
-
-		a += dv
-		if hero.Name == "Brian" && a > 1 && (hero.Vector[0] != 0 || hero.Vector[1] != 0) {
-			service.Chat().Info("client %v\n", hero.Position)
-			a = 0
-		}
 	}
 	lastUpdate = now
 }

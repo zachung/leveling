@@ -49,7 +49,6 @@ func NewRole(data dao.Hero, subject contract.Subject, client contract.Client) co
 		operations:    make(map[contract2.RoleEvent][]func(...any)),
 		abilities:     make(map[AbilityType]Ability),
 	}
-	// TODO: hero.position & vector move to MoveAbility
 	hero.abilities[AutoAttack] = NewAutoAttackAbility(hero)
 	hero.abilities[Action] = NewActionAbility(hero)
 	hero.abilities[Movement] = NewMoveAbility(hero)
@@ -101,8 +100,7 @@ func (hero *Hero) SetAction(action contract2.Message) {
 	switch action.(type) {
 	case contract2.MoveEvent:
 		event := action.(contract2.MoveEvent)
-		// TODO: Right 只是暫時寫的
-		for _, f := range hero.operations[contract2.Right] {
+		for _, f := range hero.operations[contract2.Movement] {
 			f(event)
 		}
 	case contract2.ActionEvent:

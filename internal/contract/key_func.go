@@ -8,6 +8,7 @@ const (
 	Skill1
 	Skill2
 
+	Movement
 	Up
 	Down
 	Left

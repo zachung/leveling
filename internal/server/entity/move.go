@@ -14,7 +14,7 @@ type MoveAbility struct {
 
 func NewMoveAbility(hero *Hero) Ability {
 	a := &MoveAbility{hero: hero}
-	hero.AddOperationListener(contract2.Right, func(args ...interface{}) {
+	hero.AddOperationListener(contract2.Movement, func(args ...interface{}) {
 		event := args[0].(contract2.MoveEvent)
 		a.vector = event.Vector
 	})

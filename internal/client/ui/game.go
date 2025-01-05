@@ -5,7 +5,7 @@ import (
 	"github.com/ebitenui/ebitenui"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	log "github.com/sirupsen/logrus"
+	"leveling/internal/client/contract"
 	"leveling/internal/client/service"
 	"leveling/internal/client/ui/keys"
 )
@@ -28,7 +28,7 @@ func NewGame() *Game {
 	}
 	game.state = newState()
 	game.worldMap = newWorld()
-	game.world = ebiten.NewImage(screenWidth, screenHeight)
+	game.world = ebiten.NewImage(contract.ScreenWidth*2, contract.ScreenHeight*2)
 
 	return &game
 }
@@ -40,9 +40,9 @@ func (g *Game) Update() error {
 	g.ui.Update()
 	g.worldMap.Update()
 	keyHandler.Execute()
-	if g.worldMap.heroes[service.EventBus().GetState().Hero.Name] != nil {
-		g.camera.Position = g.worldMap.heroes[service.EventBus().GetState().Hero.Name].Position
-		log.Infof("%v\n", g.camera.Position)
+	name := service.EventBus().GetState().Hero.Name
+	if g.worldMap.heroes[name] != nil {
+		g.camera.Position = g.worldMap.heroes[name].Position
 	}
 
 	if ebiten.IsKeyPressed(ebiten.KeyQ) {
@@ -64,12 +64,12 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	g.ui.Draw(screen)
-
-	g.state.Draw(screen)
 	g.world.Clear()
 	g.worldMap.Draw(g.world)
 	g.camera.Render(g.world, screen)
+
+	g.ui.Draw(screen)
+	g.state.Draw(screen)
 
 	ebitenutil.DebugPrint(screen, fmt.Sprintf("TPS: %0.2f", ebiten.ActualTPS()))
 
@@ -79,7 +79,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		fmt.Sprintf("%s\nCursor World Pos: %.2f,%.2f",
 			g.camera.String(),
 			worldX, worldY),
-		0, screenHeight-32,
+		0, contract.ScreenHeight-32,
 	)
 }
 
