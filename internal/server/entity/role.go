@@ -122,7 +122,6 @@ func (hero *Hero) SetAction(action contract2.Message) {
 			hero.abilities[Action].(*ActionAbility).nextAction = nil
 			hero.target = nil
 		default:
-			return
 		}
 	}
 	hero.isActive = true

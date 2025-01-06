@@ -33,6 +33,12 @@ func NewAutoAttackAbility(hero *Hero) Ability {
 func (a *AutoAttackAbility) Update(dt float64) {
 	hero := a.hero
 	a.attackCooldown += dt / hero.mainHand.GetSpeed()
+	if !a.isAutoAttack {
+		if a.attackCooldown > roundTimeSecond {
+			a.attackCooldown = roundTimeSecond
+		}
+		return
+	}
 	for {
 		if a.attackCooldown < roundTimeSecond {
 			return
@@ -43,9 +49,6 @@ func (a *AutoAttackAbility) Update(dt float64) {
 }
 
 func (a *AutoAttackAbility) doAutoAttack(hero *Hero) {
-	if !a.isAutoAttack {
-		return
-	}
 	if hero.target == nil {
 		a.isAutoAttack = false
 		return
