@@ -27,6 +27,10 @@ type Player struct {
 	Cooldown  time.Time   // 行動冷卻時間
 }
 
+// 預約的行動
+var nextPlayerAction *AttackMove
+var nextPlayerMeditate bool
+
 // NewPlayer 是一個工廠函數，用於創建一個新的玩家實例
 func NewPlayer(name string, health, energy int) *Player {
 	return &Player{
@@ -81,17 +85,12 @@ func (p *Player) Attack(target *Player, move *AttackMove) []string {
 		return logs
 	}
 
-	if p.Energy < move.EnergyCost {
-		logs = append(logs, fmt.Sprintf("%s 想要使用 [%s]，但是能量不足！", p.Name, move.Name))
-		return logs
-	}
-
 	// 執行攻擊
 	logs = append(logs, fmt.Sprintf("➡️ %s 使用 [%s] 攻擊 %s！", p.Name, move.Name, target.Name))
 	p.LoseEnergy(move.EnergyCost)
 	logs = append(logs, fmt.Sprintf("   %s 消耗了 %d 點能量。", p.Name, move.EnergyCost))
 
-	target.LoseHealth(move.Damage) // 修正：對目標造成生命傷害
+	target.LoseHealth(move.Damage)
 	logs = append(logs, fmt.Sprintf("   %s 對 %s 造成了 %d 點生命傷害！", p.Name, target.Name, move.Damage))
 	return logs
 }
@@ -106,15 +105,24 @@ func (p *Player) Meditate() []string {
 // GetStatusText 獲取格式化後的狀態文字
 func (p *Player) GetStatusText() string {
 	var status strings.Builder
-	status.WriteString(fmt.Sprintf("[::b]%s\n", p.Name)) // 粗體名稱
+	status.WriteString(fmt.Sprintf("[::b]%s\n", p.Name))
 	status.WriteString(fmt.Sprintf("%s\n", strings.Repeat("─", len(p.Name)+4)))
 	status.WriteString(fmt.Sprintf("[red]生命: %d / %d[-:-:-]\n", p.Health, p.MaxHealth))
 	status.WriteString(fmt.Sprintf("[blue]能量: %d / %d[-:-:-]\n", p.Energy, p.MaxEnergy))
+
 	if time.Now().Before(p.Cooldown) {
 		status.WriteString(fmt.Sprintf("[yellow]狀態: 冷卻中 (%.1fs)[-:-:-]", time.Until(p.Cooldown).Seconds()))
 	} else {
 		status.WriteString("[green]狀態: 可行動[-:-:-]")
 	}
+
+	// 顯示預約的行動
+	if nextPlayerAction != nil {
+		status.WriteString(fmt.Sprintf("\n[cyan]預約: %s[-:-:-]", nextPlayerAction.Name))
+	} else if nextPlayerMeditate {
+		status.WriteString("\n[cyan]預約: 冥想[-:-:-]")
+	}
+
 	return status.String()
 }
 
@@ -125,7 +133,7 @@ func main() {
 	stomp := &AttackMove{Name: "踐踏", EnergyCost: 1, Damage: 8}
 
 	player := NewPlayer("英雄", 100, 50)
-	monster := NewPlayer("哥布林", 80, 999) // 敵人能量設高，確保能一直攻擊
+	monster := NewPlayer("哥布林", 80, 999)
 	monster.EquipAttack(stomp)
 
 	// --- TUI 介面設定 ---
@@ -157,8 +165,6 @@ func main() {
 		AddItem(instructions, 2, 0, false)
 
 	// --- 遊戲邏輯與主迴圈 ---
-	var playerAction *AttackMove
-	var playerMeditate bool
 	cooldownDuration := 1 * time.Second
 
 	go func() {
@@ -175,24 +181,25 @@ func main() {
 
 			// 玩家行動
 			if time.Now().After(player.Cooldown) {
-				if playerAction != nil {
-					logsThisTick = append(logsThisTick, player.Attack(monster, playerAction)...)
+				if nextPlayerAction != nil {
+					logsThisTick = append(logsThisTick, player.Attack(monster, nextPlayerAction)...)
 					player.Cooldown = time.Now().Add(cooldownDuration)
-					playerAction = nil
+					nextPlayerAction = nil
 					actionTaken = true
-				} else if playerMeditate {
+				} else if nextPlayerMeditate {
 					logsThisTick = append(logsThisTick, player.Meditate()...)
 					player.Cooldown = time.Now().Add(cooldownDuration)
-					playerMeditate = false
+					nextPlayerMeditate = false
 					actionTaken = true
 				}
 			}
 
 			// 敵人 AI 行動
 			if time.Now().After(monster.Cooldown) && !monster.IsDefeated() {
+				// 修正錯誤：將 append 分為兩行
 				logsThisTick = append(logsThisTick, "")
 				logsThisTick = append(logsThisTick, monster.Attack(player, monster.AI_Attack)...)
-				monster.Cooldown = time.Now().Add(2 * time.Second) // 讓敵人攻擊慢一點
+				monster.Cooldown = time.Now().Add(2 * time.Second)
 				actionTaken = true
 			}
 
@@ -208,7 +215,6 @@ func main() {
 				}
 			}
 
-			// 使用 QueueUpdateDraw 安全地更新 UI
 			app.QueueUpdateDraw(func() {
 				updateStatusViews()
 				if actionTaken {
@@ -228,18 +234,26 @@ func main() {
 			return event
 		}
 
-		if time.Now().After(player.Cooldown) { // 只在冷卻結束時接受輸入
-			switch event.Rune() {
-			case '1':
-				playerAction = slash
-			case '2':
-				playerAction = heavyStrike
-			case 'm':
-				playerMeditate = true
+		// 預約行動邏輯
+		switch event.Rune() {
+		case '1':
+			if player.Energy >= slash.EnergyCost {
+				nextPlayerAction = slash
+				nextPlayerMeditate = false
+			} else {
+				logHistory = append(logHistory, "[orange]能量不足，無法預約 [揮砍]！[-:-:-]")
 			}
-		}
-
-		if event.Rune() == 'q' {
+		case '2':
+			if player.Energy >= heavyStrike.EnergyCost {
+				nextPlayerAction = heavyStrike
+				nextPlayerMeditate = false
+			} else {
+				logHistory = append(logHistory, "[orange]能量不足，無法預約 [強力一擊]！[-:-:-]")
+			}
+		case 'm':
+			nextPlayerAction = nil
+			nextPlayerMeditate = true
+		case 'q':
 			app.Stop()
 		}
 		return event
