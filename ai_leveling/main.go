@@ -12,29 +12,41 @@ import (
 type AttackMove struct {
 	Name       string // 招式名稱
 	EnergyCost int    // 消耗能量
-	Damage     int    // 造成傷害
+	Damage     int    // 造成傷害 (削減生命)
 }
 
 // Player 定義了遊戲中的玩家角色
 type Player struct {
-	Name           string      // 玩家名稱
-	Energy         int         // 當前能量
-	MaxEnergy      int         // 最大能量
-	EquippedAttack *AttackMove // 電腦(敵人)AI使用的攻擊招式
+	Name      string      // 玩家名稱
+	Health    int         // 當前生命
+	MaxHealth int         // 最大生命
+	Energy    int         // 當前能量
+	MaxEnergy int         // 最大能量
+	AI_Attack *AttackMove // 電腦(敵人)AI使用的攻擊招式
 }
 
 // NewPlayer 是一個工廠函數，用於創建一個新的玩家實例
-func NewPlayer(name string, initialEnergy, maxEnergy int) *Player {
+func NewPlayer(name string, health, energy int) *Player {
 	return &Player{
 		Name:      name,
-		Energy:    initialEnergy,
-		MaxEnergy: maxEnergy,
+		Health:    health,
+		MaxHealth: health,
+		Energy:    energy,
+		MaxEnergy: energy,
 	}
 }
 
 // EquipAttack 讓玩家裝備一個攻擊招式 (主要供敵人AI使用)
 func (p *Player) EquipAttack(attack *AttackMove) {
-	p.EquippedAttack = attack
+	p.AI_Attack = attack
+}
+
+// LoseHealth 減少玩家的生命，但不會低於 0
+func (p *Player) LoseHealth(amount int) {
+	p.Health -= amount
+	if p.Health < 0 {
+		p.Health = 0
+	}
 }
 
 // GainEnergy 為玩家增加能量，但不會超過最大值
@@ -53,9 +65,9 @@ func (p *Player) LoseEnergy(amount int) {
 	}
 }
 
-// IsDefeated 檢查玩家是否被擊敗 (能量為 0)
+// IsDefeated 檢查玩家是否被擊敗 (生命為 0)
 func (p *Player) IsDefeated() bool {
-	return p.Energy <= 0
+	return p.Health <= 0
 }
 
 // Attack 讓玩家對目標使用指定的攻擊招式，並返回戰鬥日誌
@@ -76,8 +88,8 @@ func (p *Player) Attack(target *Player, move *AttackMove) []string {
 	p.LoseEnergy(move.EnergyCost)
 	logs = append(logs, fmt.Sprintf("   %s 消耗了 %d 點能量。", p.Name, move.EnergyCost))
 
-	target.LoseEnergy(move.Damage)
-	logs = append(logs, fmt.Sprintf("   %s 對 %s 造成了 %d 點傷害！", p.Name, target.Name, move.Damage))
+	target.LoseHealth(move.Damage) // 修正：對目標造成生命傷害
+	logs = append(logs, fmt.Sprintf("   %s 對 %s 造成了 %d 點生命傷害！", p.Name, target.Name, move.Damage))
 	return logs
 }
 
@@ -92,9 +104,9 @@ func (p *Player) Meditate() []string {
 func (p *Player) GetStatusText() string {
 	var status strings.Builder
 	status.WriteString(fmt.Sprintf("[::b]%s\n", p.Name)) // 粗體名稱
-	status.WriteString(fmt.Sprintf("%s\n", strings.Repeat("─", len(p.Name)+2)))
-	status.WriteString(fmt.Sprintf("能量: %d / %d\n", p.Energy, p.MaxEnergy))
-	// 因為招式是動態選擇的，狀態欄不再顯示固定招式
+	status.WriteString(fmt.Sprintf("%s\n", strings.Repeat("─", len(p.Name)+4)))
+	status.WriteString(fmt.Sprintf("[red]生命: %d / %d[-:-:-]\n", p.Health, p.MaxHealth))  // 紅色顯示生命
+	status.WriteString(fmt.Sprintf("[blue]能量: %d / %d[-:-:-]\n", p.Energy, p.MaxEnergy)) // 藍色顯示能量
 	return status.String()
 }
 
@@ -105,9 +117,9 @@ func main() {
 	heavyStrike := &AttackMove{Name: "強力一擊", EnergyCost: 35, Damage: 45}
 	stomp := &AttackMove{Name: "踐踏", EnergyCost: 5, Damage: 10}
 
-	// 建立玩家和敵人
-	player := NewPlayer("英雄", 100, 100)
-	monster := NewPlayer("哥布林", 80, 80)
+	// 建立玩家和敵人，傳入初始生命和初始能量
+	player := NewPlayer("英雄", 100, 50)
+	monster := NewPlayer("哥布林", 80, 20)
 
 	// 為敵人設定預設攻擊招式
 	monster.EquipAttack(stomp)
@@ -192,7 +204,7 @@ func main() {
 			} else {
 				// 怪物回合 (敵人使用預設招式)
 				currentTurnLogs = append(currentTurnLogs, "") // 加入空行
-				currentTurnLogs = append(currentTurnLogs, monster.Attack(player, monster.EquippedAttack)...)
+				currentTurnLogs = append(currentTurnLogs, monster.Attack(player, monster.AI_Attack)...)
 				if player.IsDefeated() {
 					currentTurnLogs = append(currentTurnLogs, "", "[::b][red]你被哥布林擊敗了... 按(q)離開。")
 				}
