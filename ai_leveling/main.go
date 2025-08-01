@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -23,6 +24,7 @@ type Player struct {
 	Energy    int         // 當前能量
 	MaxEnergy int         // 最大能量
 	AI_Attack *AttackMove // 電腦(敵人)AI使用的攻擊招式
+	Cooldown  time.Time   // 行動冷卻時間
 }
 
 // NewPlayer 是一個工廠函數，用於創建一個新的玩家實例
@@ -33,6 +35,7 @@ func NewPlayer(name string, health, energy int) *Player {
 		MaxHealth: health,
 		Energy:    energy,
 		MaxEnergy: energy,
+		Cooldown:  time.Now(), // 初始狀態為可立即行動
 	}
 }
 
@@ -105,71 +108,116 @@ func (p *Player) GetStatusText() string {
 	var status strings.Builder
 	status.WriteString(fmt.Sprintf("[::b]%s\n", p.Name)) // 粗體名稱
 	status.WriteString(fmt.Sprintf("%s\n", strings.Repeat("─", len(p.Name)+4)))
-	status.WriteString(fmt.Sprintf("[red]生命: %d / %d[-:-:-]\n", p.Health, p.MaxHealth))  // 紅色顯示生命
-	status.WriteString(fmt.Sprintf("[blue]能量: %d / %d[-:-:-]\n", p.Energy, p.MaxEnergy)) // 藍色顯示能量
+	status.WriteString(fmt.Sprintf("[red]生命: %d / %d[-:-:-]\n", p.Health, p.MaxHealth))
+	status.WriteString(fmt.Sprintf("[blue]能量: %d / %d[-:-:-]\n", p.Energy, p.MaxEnergy))
+	if time.Now().Before(p.Cooldown) {
+		status.WriteString(fmt.Sprintf("[yellow]狀態: 冷卻中 (%.1fs)[-:-:-]", time.Until(p.Cooldown).Seconds()))
+	} else {
+		status.WriteString("[green]狀態: 可行動[-:-:-]")
+	}
 	return status.String()
 }
 
 func main() {
 	// --- 遊戲設定 ---
-	// 定義所有可用的招式
 	slash := &AttackMove{Name: "揮砍", EnergyCost: 10, Damage: 15}
 	heavyStrike := &AttackMove{Name: "強力一擊", EnergyCost: 35, Damage: 45}
-	stomp := &AttackMove{Name: "踐踏", EnergyCost: 5, Damage: 10}
+	stomp := &AttackMove{Name: "踐踏", EnergyCost: 1, Damage: 8}
 
-	// 建立玩家和敵人，傳入初始生命和初始能量
 	player := NewPlayer("英雄", 100, 50)
-	monster := NewPlayer("哥布林", 80, 20)
-
-	// 為敵人設定預設攻擊招式
+	monster := NewPlayer("哥布林", 80, 999) // 敵人能量設高，確保能一直攻擊
 	monster.EquipAttack(stomp)
 
 	// --- TUI 介面設定 ---
 	app := tview.NewApplication()
-
-	// 戰鬥日誌歷史記錄
 	var logHistory []string
 	const maxLogLines = 100
 
-	// 建立顯示元件
 	playerStatus := tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignCenter)
 	playerStatus.SetBorder(true).SetTitle("你的狀態")
-
 	monsterStatus := tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignCenter)
 	monsterStatus.SetBorder(true).SetTitle("敵人狀態")
-
 	battleLog := tview.NewTextView().SetDynamicColors(true).SetScrollable(true)
 	battleLog.SetBorder(true).SetTitle("戰鬥日誌 (可用方向鍵捲動)")
-
 	instructions := tview.NewTextView().SetDynamicColors(true)
 	instructions.SetText(
 		fmt.Sprintf("[yellow](1) %s [white](耗%d傷%d) | [yellow](2) %s [white](耗%d傷%d) | [yellow](m) %s [white]| [yellow](q)uit",
-			slash.Name, slash.EnergyCost, slash.Damage,
-			heavyStrike.Name, heavyStrike.EnergyCost, heavyStrike.Damage,
-			"冥想"),
+			slash.Name, slash.EnergyCost, slash.Damage, heavyStrike.Name, heavyStrike.EnergyCost, heavyStrike.Damage, "冥想"),
 	)
-
-	// 更新狀態畫面的函式
 	updateStatusViews := func() {
 		playerStatus.SetText(player.GetStatusText())
 		monsterStatus.SetText(monster.GetStatusText())
 	}
-
-	// 初始畫面
-	updateStatusViews()
 	logHistory = append(logHistory, "戰鬥開始！")
 	battleLog.SetText(strings.Join(logHistory, "\n"))
 
-	// 版面配置
-	flex := tview.NewFlex().
-		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
-			AddItem(playerStatus, 0, 1, false).
-			AddItem(monsterStatus, 0, 1, false), 0, 1, false).
-		AddItem(battleLog, 0, 2, false)
-
 	mainLayout := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(flex, 0, 1, false).
+		AddItem(tview.NewFlex().AddItem(playerStatus, 0, 1, false).AddItem(monsterStatus, 0, 1, false), 0, 1, false).
+		AddItem(battleLog, 0, 2, false).
 		AddItem(instructions, 2, 0, false)
+
+	// --- 遊戲邏輯與主迴圈 ---
+	var playerAction *AttackMove
+	var playerMeditate bool
+	cooldownDuration := 1 * time.Second
+
+	go func() {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			if player.IsDefeated() || monster.IsDefeated() {
+				continue
+			}
+
+			var logsThisTick []string
+			actionTaken := false
+
+			// 玩家行動
+			if time.Now().After(player.Cooldown) {
+				if playerAction != nil {
+					logsThisTick = append(logsThisTick, player.Attack(monster, playerAction)...)
+					player.Cooldown = time.Now().Add(cooldownDuration)
+					playerAction = nil
+					actionTaken = true
+				} else if playerMeditate {
+					logsThisTick = append(logsThisTick, player.Meditate()...)
+					player.Cooldown = time.Now().Add(cooldownDuration)
+					playerMeditate = false
+					actionTaken = true
+				}
+			}
+
+			// 敵人 AI 行動
+			if time.Now().After(monster.Cooldown) && !monster.IsDefeated() {
+				logsThisTick = append(logsThisTick, "")
+				logsThisTick = append(logsThisTick, monster.Attack(player, monster.AI_Attack)...)
+				monster.Cooldown = time.Now().Add(2 * time.Second) // 讓敵人攻擊慢一點
+				actionTaken = true
+			}
+
+			if actionTaken {
+				if monster.IsDefeated() {
+					logsThisTick = append(logsThisTick, "", "[::b][green]恭喜！你擊敗了哥布林！ 按(q)離開。")
+				} else if player.IsDefeated() {
+					logsThisTick = append(logsThisTick, "", "[::b][red]你被哥布林擊敗了... 按(q)離開。")
+				}
+				logHistory = append(logHistory, logsThisTick...)
+				if len(logHistory) > maxLogLines {
+					logHistory = logHistory[len(logHistory)-maxLogLines:]
+				}
+			}
+
+			// 使用 QueueUpdateDraw 安全地更新 UI
+			app.QueueUpdateDraw(func() {
+				updateStatusViews()
+				if actionTaken {
+					battleLog.SetText(strings.Join(logHistory, "\n"))
+					battleLog.ScrollToEnd()
+				}
+			})
+		}
+	}()
 
 	// --- 輸入處理 ---
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
@@ -180,51 +228,24 @@ func main() {
 			return event
 		}
 
-		var currentTurnLogs []string
-		playerActionTaken := true
-
-		switch event.Rune() {
-		case '1':
-			currentTurnLogs = append(currentTurnLogs, player.Attack(monster, slash)...)
-		case '2':
-			currentTurnLogs = append(currentTurnLogs, player.Attack(monster, heavyStrike)...)
-		case 'm':
-			currentTurnLogs = append(currentTurnLogs, player.Meditate()...)
-		case 'q':
-			app.Stop()
-			return event
-		default:
-			playerActionTaken = false // 如果按了無效鍵，則不算玩家行動
+		if time.Now().After(player.Cooldown) { // 只在冷卻結束時接受輸入
+			switch event.Rune() {
+			case '1':
+				playerAction = slash
+			case '2':
+				playerAction = heavyStrike
+			case 'm':
+				playerMeditate = true
+			}
 		}
 
-		// 如果玩家有行動，才輪到怪物行動
-		if playerActionTaken {
-			if monster.IsDefeated() {
-				currentTurnLogs = append(currentTurnLogs, "", "[::b][green]恭喜！你擊敗了哥布林！ 按(q)離開。")
-			} else {
-				// 怪物回合 (敵人使用預設招式)
-				currentTurnLogs = append(currentTurnLogs, "") // 加入空行
-				currentTurnLogs = append(currentTurnLogs, monster.Attack(player, monster.AI_Attack)...)
-				if player.IsDefeated() {
-					currentTurnLogs = append(currentTurnLogs, "", "[::b][red]你被哥布林擊敗了... 按(q)離開。")
-				}
-			}
-
-			logHistory = append(logHistory, currentTurnLogs...)
-			if len(logHistory) > maxLogLines {
-				logHistory = logHistory[len(logHistory)-maxLogLines:]
-			}
-
-			// 更新日誌畫面並捲動到底部
-			battleLog.SetText(strings.Join(logHistory, "\n"))
-			battleLog.ScrollToEnd()
-
-			updateStatusViews()
+		if event.Rune() == 'q' {
+			app.Stop()
 		}
 		return event
 	})
 
-	if err := app.SetRoot(mainLayout, true).EnableMouse(true).Run(); err != nil {
+	if err := app.SetRoot(mainLayout, true).SetFocus(mainLayout).Run(); err != nil {
 		panic(err)
 	}
 }
