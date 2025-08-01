@@ -16,44 +16,59 @@ type AttackMove struct {
 	Damage     int    // 造成傷害 (削減生命)
 }
 
-// Player 定義了遊戲中的玩家角色
+// Shell 代表一個可被附身的軀殼
+type Shell struct {
+	Name      string
+	Health    int
+	MaxHealth int
+	Cooldown  time.Time
+	AI_Attack *AttackMove
+}
+
+// Player 代表玩家的核心靈魂
 type Player struct {
-	Name      string      // 玩家名稱
-	Health    int         // 當前生命
-	MaxHealth int         // 最大生命
-	Energy    int         // 當前能量
-	MaxEnergy int         // 最大能量
-	AI_Attack *AttackMove // 電腦(敵人)AI使用的攻擊招式
-	Cooldown  time.Time   // 行動冷卻時間
+	Name         string
+	Energy       int
+	MaxEnergy    int
+	CurrentShell *Shell // 玩家當前附身的軀殼，可能為 nil
 }
 
 // 預約的行動
 var nextPlayerAction *AttackMove
 var nextPlayerMeditate bool
+var nextPlayerPossess bool
 
-// NewPlayer 是一個工廠函數，用於創建一個新的玩家實例
-func NewPlayer(name string, health, energy int) *Player {
+// NewPlayer 創建一個新的玩家靈魂實例
+func NewPlayer(name string, energy int) *Player {
 	return &Player{
+		Name:      name,
+		Energy:    energy,
+		MaxEnergy: energy,
+	}
+}
+
+// NewShell 創建一個新的軀殼實例
+func NewShell(name string, health int, aiAttack *AttackMove) *Shell {
+	return &Shell{
 		Name:      name,
 		Health:    health,
 		MaxHealth: health,
-		Energy:    energy,
-		MaxEnergy: energy,
-		Cooldown:  time.Now(), // 初始狀態為可立即行動
+		Cooldown:  time.Now(),
+		AI_Attack: aiAttack,
 	}
 }
 
-// EquipAttack 讓玩家裝備一個攻擊招式 (主要供敵人AI使用)
-func (p *Player) EquipAttack(attack *AttackMove) {
-	p.AI_Attack = attack
+// LoseHealth 減少軀殼的生命，但不會低於 0
+func (s *Shell) LoseHealth(amount int) {
+	s.Health -= amount
+	if s.Health < 0 {
+		s.Health = 0
+	}
 }
 
-// LoseHealth 減少玩家的生命，但不會低於 0
-func (p *Player) LoseHealth(amount int) {
-	p.Health -= amount
-	if p.Health < 0 {
-		p.Health = 0
-	}
+// IsDefeated 檢查軀殼是否被摧毀
+func (s *Shell) IsDefeated() bool {
+	return s.Health <= 0
 }
 
 // GainEnergy 為玩家增加能量，但不會超過最大值
@@ -72,26 +87,23 @@ func (p *Player) LoseEnergy(amount int) {
 	}
 }
 
-// IsDefeated 檢查玩家是否被擊敗 (生命為 0)
-func (p *Player) IsDefeated() bool {
-	return p.Health <= 0
-}
-
-// Attack 讓玩家對目標使用指定的攻擊招式，並返回戰鬥日誌
+// Attack 讓玩家驅動軀殼對目標使用指定的攻擊招式
 func (p *Player) Attack(target *Player, move *AttackMove) []string {
-	var logs []string
-	if move == nil {
-		logs = append(logs, fmt.Sprintf("%s 沒有選擇任何招式！", p.Name))
-		return logs
+	if p.CurrentShell == nil {
+		return []string{"靈體狀態無法攻擊！"}
+	}
+	if p.Energy < move.EnergyCost {
+		return []string{fmt.Sprintf("能量不足以使用 [%s]！", move.Name)}
 	}
 
-	// 執行攻擊
-	logs = append(logs, fmt.Sprintf("➡️ %s 使用 [%s] 攻擊 %s！", p.Name, move.Name, target.Name))
+	logs := []string{fmt.Sprintf("➡️ %s 使用 [%s] 攻擊 %s！", p.Name, move.Name, target.Name)}
 	p.LoseEnergy(move.EnergyCost)
 	logs = append(logs, fmt.Sprintf("   %s 消耗了 %d 點能量。", p.Name, move.EnergyCost))
 
-	target.LoseHealth(move.Damage)
-	logs = append(logs, fmt.Sprintf("   %s 對 %s 造成了 %d 點生命傷害！", p.Name, target.Name, move.Damage))
+	if target.CurrentShell != nil {
+		target.CurrentShell.LoseHealth(move.Damage)
+		logs = append(logs, fmt.Sprintf("   對 %s 的軀殼造成了 %d 點傷害！", target.Name, move.Damage))
+	}
 	return logs
 }
 
@@ -107,20 +119,25 @@ func (p *Player) GetStatusText() string {
 	var status strings.Builder
 	status.WriteString(fmt.Sprintf("[::b]%s\n", p.Name))
 	status.WriteString(fmt.Sprintf("%s\n", strings.Repeat("─", len(p.Name)+4)))
-	status.WriteString(fmt.Sprintf("[red]生命: %d / %d[-:-:-]\n", p.Health, p.MaxHealth))
 	status.WriteString(fmt.Sprintf("[blue]能量: %d / %d[-:-:-]\n", p.Energy, p.MaxEnergy))
 
-	if time.Now().Before(p.Cooldown) {
-		status.WriteString(fmt.Sprintf("[yellow]狀態: 冷卻中 (%.1fs)[-:-:-]", time.Until(p.Cooldown).Seconds()))
+	if p.CurrentShell != nil {
+		status.WriteString(fmt.Sprintf("[red]生命: %d / %d[-:-:-]\n", p.CurrentShell.Health, p.CurrentShell.MaxHealth))
+		if time.Now().Before(p.CurrentShell.Cooldown) {
+			status.WriteString(fmt.Sprintf("[yellow]狀態: 冷卻中 (%.1fs)[-:-:-]", time.Until(p.CurrentShell.Cooldown).Seconds()))
+		} else {
+			status.WriteString("[green]狀態: 可行動[-:-:-]")
+		}
+		if nextPlayerAction != nil {
+			status.WriteString(fmt.Sprintf("\n[cyan]預約: %s[-:-:-]", nextPlayerAction.Name))
+		} else if nextPlayerMeditate {
+			status.WriteString("\n[cyan]預約: 冥想[-:-:-]")
+		}
 	} else {
-		status.WriteString("[green]狀態: 可行動[-:-:-]")
-	}
-
-	// 顯示預約的行動
-	if nextPlayerAction != nil {
-		status.WriteString(fmt.Sprintf("\n[cyan]預約: %s[-:-:-]", nextPlayerAction.Name))
-	} else if nextPlayerMeditate {
-		status.WriteString("\n[cyan]預約: 冥想[-:-:-]")
+		status.WriteString("[purple]狀態: 靈體[-:-:-]\n")
+		if nextPlayerPossess {
+			status.WriteString("[cyan]預約: 附身[-:-:-]")
+		}
 	}
 
 	return status.String()
@@ -131,10 +148,13 @@ func main() {
 	slash := &AttackMove{Name: "揮砍", EnergyCost: 10, Damage: 15}
 	heavyStrike := &AttackMove{Name: "強力一擊", EnergyCost: 35, Damage: 45}
 	stomp := &AttackMove{Name: "踐踏", EnergyCost: 1, Damage: 8}
+	possessionCost := 40
 
-	player := NewPlayer("英雄", 100, 50)
-	monster := NewPlayer("哥布林", 80, 999)
-	monster.EquipAttack(stomp)
+	player := NewPlayer("英雄", 100)
+	monster := NewPlayer("哥布林", 999) // 敵人能量無限
+
+	player.CurrentShell = NewShell("人類軀殼", 100, nil)
+	monster.CurrentShell = NewShell("哥布林軀殼", 80, stomp)
 
 	// --- TUI 介面設定 ---
 	app := tview.NewApplication()
@@ -148,21 +168,22 @@ func main() {
 	battleLog := tview.NewTextView().SetDynamicColors(true).SetScrollable(true)
 	battleLog.SetBorder(true).SetTitle("戰鬥日誌 (可用方向鍵捲動)")
 	instructions := tview.NewTextView().SetDynamicColors(true)
-	instructions.SetText(
-		fmt.Sprintf("[yellow](1) %s [white](耗%d傷%d) | [yellow](2) %s [white](耗%d傷%d) | [yellow](m) %s [white]| [yellow](q)uit",
-			slash.Name, slash.EnergyCost, slash.Damage, heavyStrike.Name, heavyStrike.EnergyCost, heavyStrike.Damage, "冥想"),
-	)
+
 	updateStatusViews := func() {
 		playerStatus.SetText(player.GetStatusText())
 		monsterStatus.SetText(monster.GetStatusText())
+		if player.CurrentShell != nil {
+			instructions.SetText(fmt.Sprintf("[yellow](1) %s | (2) %s | (m) %s | (q)uit", slash.Name, heavyStrike.Name, "冥想"))
+		} else {
+			instructions.SetText(fmt.Sprintf("[yellow](p) 附身 (消耗 %d 能量) | (q)uit", possessionCost))
+		}
 	}
 	logHistory = append(logHistory, "戰鬥開始！")
-	battleLog.SetText(strings.Join(logHistory, "\n"))
 
 	mainLayout := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(tview.NewFlex().AddItem(playerStatus, 0, 1, false).AddItem(monsterStatus, 0, 1, false), 0, 1, false).
 		AddItem(battleLog, 0, 2, false).
-		AddItem(instructions, 2, 0, false)
+		AddItem(instructions, 1, 0, false)
 
 	// --- 遊戲邏輯與主迴圈 ---
 	cooldownDuration := 1 * time.Second
@@ -172,43 +193,53 @@ func main() {
 		defer ticker.Stop()
 
 		for range ticker.C {
-			if player.IsDefeated() || monster.IsDefeated() {
-				continue
-			}
-
 			var logsThisTick []string
 			actionTaken := false
 
-			// 玩家行動
-			if time.Now().After(player.Cooldown) {
-				if nextPlayerAction != nil {
-					logsThisTick = append(logsThisTick, player.Attack(monster, nextPlayerAction)...)
-					player.Cooldown = time.Now().Add(cooldownDuration)
-					nextPlayerAction = nil
+			// 玩家行動邏輯
+			if player.CurrentShell != nil { // 有軀殼時
+				if player.CurrentShell.IsDefeated() {
+					player.CurrentShell = nil
+					logsThisTick = append(logsThisTick, "[orange]你的軀殼被摧毀了！你現在是靈體狀態。[-:-:-]")
 					actionTaken = true
-				} else if nextPlayerMeditate {
-					logsThisTick = append(logsThisTick, player.Meditate()...)
-					player.Cooldown = time.Now().Add(cooldownDuration)
-					nextPlayerMeditate = false
+				} else if time.Now().After(player.CurrentShell.Cooldown) {
+					if nextPlayerAction != nil {
+						logsThisTick = append(logsThisTick, player.Attack(monster, nextPlayerAction)...)
+						player.CurrentShell.Cooldown = time.Now().Add(cooldownDuration)
+						nextPlayerAction = nil
+						actionTaken = true
+					} else if nextPlayerMeditate {
+						logsThisTick = append(logsThisTick, player.Meditate()...)
+						player.CurrentShell.Cooldown = time.Now().Add(cooldownDuration)
+						nextPlayerMeditate = false
+						actionTaken = true
+					}
+				}
+			} else { // 靈體狀態邏輯
+				player.GainEnergy(1) // 每 100ms 恢復 1 點能量
+				if nextPlayerPossess {
+					player.CurrentShell = NewShell("人類軀殼", 100, nil)
+					player.LoseEnergy(possessionCost)
+					logsThisTick = append(logsThisTick, "[green]你消耗能量附身到新的軀殼上！[-:-:-]")
+					nextPlayerPossess = false
 					actionTaken = true
 				}
 			}
 
-			// 敵人 AI 行動
-			if time.Now().After(monster.Cooldown) && !monster.IsDefeated() {
-				// 修正錯誤：將 append 分為兩行
-				logsThisTick = append(logsThisTick, "")
-				logsThisTick = append(logsThisTick, monster.Attack(player, monster.AI_Attack)...)
-				monster.Cooldown = time.Now().Add(2 * time.Second)
-				actionTaken = true
+			// 敵人 AI 行動邏輯
+			if monster.CurrentShell != nil && time.Now().After(monster.CurrentShell.Cooldown) {
+				if monster.CurrentShell.IsDefeated() {
+					monster.CurrentShell = nil // 怪物也可以被摧毀
+					logsThisTick = append(logsThisTick, "[::b][green]恭喜！你摧毀了哥布林的軀殼！")
+				} else if player.CurrentShell != nil { // 只有在玩家有軀殼時才攻擊
+					logsThisTick = append(logsThisTick, "")
+					logsThisTick = append(logsThisTick, monster.Attack(player, monster.CurrentShell.AI_Attack)...)
+					monster.CurrentShell.Cooldown = time.Now().Add(2 * time.Second)
+					actionTaken = true
+				}
 			}
 
 			if actionTaken {
-				if monster.IsDefeated() {
-					logsThisTick = append(logsThisTick, "", "[::b][green]恭喜！你擊敗了哥布林！ 按(q)離開。")
-				} else if player.IsDefeated() {
-					logsThisTick = append(logsThisTick, "", "[::b][red]你被哥布林擊敗了... 按(q)離開。")
-				}
 				logHistory = append(logHistory, logsThisTick...)
 				if len(logHistory) > maxLogLines {
 					logHistory = logHistory[len(logHistory)-maxLogLines:]
@@ -227,34 +258,33 @@ func main() {
 
 	// --- 輸入處理 ---
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if player.IsDefeated() || monster.IsDefeated() {
-			if event.Rune() == 'q' {
-				app.Stop()
-			}
+		if event.Rune() == 'q' {
+			app.Stop()
 			return event
 		}
 
-		// 預約行動邏輯
-		switch event.Rune() {
-		case '1':
-			if player.Energy >= slash.EnergyCost {
-				nextPlayerAction = slash
-				nextPlayerMeditate = false
-			} else {
-				logHistory = append(logHistory, "[orange]能量不足，無法預約 [揮砍]！[-:-:-]")
+		if player.CurrentShell != nil { // 有軀殼時的輸入
+			switch event.Rune() {
+			case '1':
+				if player.Energy >= slash.EnergyCost {
+					nextPlayerAction = slash
+					nextPlayerMeditate = false
+				}
+			case '2':
+				if player.Energy >= heavyStrike.EnergyCost {
+					nextPlayerAction = heavyStrike
+					nextPlayerMeditate = false
+				}
+			case 'm':
+				nextPlayerAction = nil
+				nextPlayerMeditate = true
 			}
-		case '2':
-			if player.Energy >= heavyStrike.EnergyCost {
-				nextPlayerAction = heavyStrike
-				nextPlayerMeditate = false
-			} else {
-				logHistory = append(logHistory, "[orange]能量不足，無法預約 [強力一擊]！[-:-:-]")
+		} else { // 靈體狀態時的輸入
+			if event.Rune() == 'p' {
+				if player.Energy >= possessionCost {
+					nextPlayerPossess = true
+				}
 			}
-		case 'm':
-			nextPlayerAction = nil
-			nextPlayerMeditate = true
-		case 'q':
-			app.Stop()
 		}
 		return event
 	})
