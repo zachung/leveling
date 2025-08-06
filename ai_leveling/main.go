@@ -21,6 +21,7 @@ type Shell struct {
 	Name      string
 	Health    int
 	MaxHealth int
+	Strength  int // 力量屬性，影響傷害
 	Cooldown  time.Time
 	AI_Attack *AttackMove
 }
@@ -48,11 +49,12 @@ func NewPlayer(name string, energy int) *Player {
 }
 
 // NewShell 創建一個新的軀殼實例
-func NewShell(name string, health int, aiAttack *AttackMove) *Shell {
+func NewShell(name string, health int, strength int, aiAttack *AttackMove) *Shell {
 	return &Shell{
 		Name:      name,
 		Health:    health,
 		MaxHealth: health,
+		Strength:  strength,
 		Cooldown:  time.Now(),
 		AI_Attack: aiAttack,
 	}
@@ -101,8 +103,9 @@ func (p *Player) Attack(target *Player, move *AttackMove) []string {
 	logs = append(logs, fmt.Sprintf("   %s 消耗了 %d 點能量。", p.Name, move.EnergyCost))
 
 	if target.CurrentShell != nil {
-		target.CurrentShell.LoseHealth(move.Damage)
-		logs = append(logs, fmt.Sprintf("   對 %s 的軀殼造成了 %d 點傷害！", target.Name, move.Damage))
+		finalDamage := move.Damage + p.CurrentShell.Strength
+		target.CurrentShell.LoseHealth(finalDamage)
+		logs = append(logs, fmt.Sprintf("   對 %s 的軀殼造成了 %d 點傷害！ (%d 基礎 + %d 力量)", target.Name, finalDamage, move.Damage, p.CurrentShell.Strength))
 	}
 	return logs
 }
@@ -123,6 +126,7 @@ func (p *Player) GetStatusText() string {
 
 	if p.CurrentShell != nil {
 		status.WriteString(fmt.Sprintf("[red]生命: %d / %d[-:-:-]\n", p.CurrentShell.Health, p.CurrentShell.MaxHealth))
+		status.WriteString(fmt.Sprintf("[orange]力量: %d[-:-:-]\n", p.CurrentShell.Strength))
 		if time.Now().Before(p.CurrentShell.Cooldown) {
 			status.WriteString(fmt.Sprintf("[yellow]狀態: 冷卻中 (%.1fs)[-:-:-]", time.Until(p.CurrentShell.Cooldown).Seconds()))
 		} else {
@@ -153,8 +157,8 @@ func main() {
 	player := NewPlayer("英雄", 100)
 	monster := NewPlayer("哥布林", 999) // 敵人能量無限
 
-	player.CurrentShell = NewShell("人類軀殼", 100, nil)
-	monster.CurrentShell = NewShell("哥布林軀殼", 80, stomp)
+	player.CurrentShell = NewShell("人類軀殼", 100, 5, nil)
+	monster.CurrentShell = NewShell("哥布林軀殼", 80, 2, stomp)
 
 	// --- TUI 介面設定 ---
 	app := tview.NewApplication()
@@ -218,7 +222,7 @@ func main() {
 			} else { // 靈體狀態邏輯
 				player.GainEnergy(1) // 每 100ms 恢復 1 點能量
 				if nextPlayerPossess {
-					player.CurrentShell = NewShell("人類軀殼", 100, nil)
+					player.CurrentShell = NewShell("人類軀殼", 100, 5, nil)
 					player.LoseEnergy(possessionCost)
 					logsThisTick = append(logsThisTick, "[green]你消耗能量附身到新的軀殼上！[-:-:-]")
 					nextPlayerPossess = false
