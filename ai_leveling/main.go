@@ -37,7 +37,7 @@ type Player struct {
 // 預約的行動
 var nextPlayerAction *AttackMove
 var nextPlayerMeditate bool
-var nextPlayerPossess bool
+var nextPlayerDirectPossess bool // 統一的附身行動
 
 // NewPlayer 創建一個新的靈魂實例
 func NewPlayer(name string, energy int) *Player {
@@ -94,6 +94,9 @@ func (p *Player) Attack(target *Player, move *AttackMove) []string {
 	if p.CurrentShell == nil {
 		return []string{"靈體狀態無法攻擊！"}
 	}
+	if target.CurrentShell == nil || target.CurrentShell.IsDefeated() {
+		return []string{fmt.Sprintf("目標 %s 的軀殼已無靈魂，無法攻擊。", target.Name)}
+	}
 	if p.Energy < move.EnergyCost {
 		return []string{fmt.Sprintf("能量不足以使用 [%s]！", move.Name)}
 	}
@@ -102,11 +105,10 @@ func (p *Player) Attack(target *Player, move *AttackMove) []string {
 	p.LoseEnergy(move.EnergyCost)
 	logs = append(logs, fmt.Sprintf("   %s 消耗了 %d 點能量。", p.Name, move.EnergyCost))
 
-	if target.CurrentShell != nil {
-		finalDamage := move.Damage + p.CurrentShell.Strength
-		target.CurrentShell.LoseHealth(finalDamage)
-		logs = append(logs, fmt.Sprintf("   對 %s 的軀殼造成了 %d 點傷害！ (%d 基礎 + %d 力量)", target.Name, finalDamage, move.Damage, p.CurrentShell.Strength))
-	}
+	finalDamage := move.Damage + p.CurrentShell.Strength
+	target.CurrentShell.LoseHealth(finalDamage)
+	logs = append(logs, fmt.Sprintf("   對 %s 的軀殼造成了 %d 點傷害！ (%d 基礎 + %d 力量)", target.Name, finalDamage, move.Damage, p.CurrentShell.Strength))
+
 	return logs
 }
 
@@ -114,7 +116,7 @@ func (p *Player) Attack(target *Player, move *AttackMove) []string {
 func (p *Player) Meditate() []string {
 	restoreAmount := 20
 	p.GainEnergy(restoreAmount)
-	return []string{fmt.Sprintf("🧘 %s 進行冥想，恢復了 %d 點能量。", p.Name, restoreAmount)}
+	return []string{fmt.Sprintf("� %s 進行冥想，恢復了 %d 點能量。", p.Name, restoreAmount)}
 }
 
 // GetPlayerStatusText 獲取玩家狀態文字
@@ -136,11 +138,13 @@ func (p *Player) GetPlayerStatusText() string {
 			status.WriteString(fmt.Sprintf("\n[cyan]預約: %s[-:-:-]", nextPlayerAction.Name))
 		} else if nextPlayerMeditate {
 			status.WriteString("\n[cyan]預約: 冥想[-:-:-]")
+		} else if nextPlayerDirectPossess {
+			status.WriteString("\n[cyan]預約: 轉附身[-:-:-]")
 		}
 	} else {
 		status.WriteString("[purple]狀態: 靈體[-:-:-]\n")
-		if nextPlayerPossess {
-			status.WriteString("[cyan]預約: 附身[-:-:-]")
+		if nextPlayerDirectPossess {
+			status.WriteString("\n[cyan]預約: 附身[-:-:-]")
 		}
 	}
 	return status.String()
@@ -149,23 +153,28 @@ func (p *Player) GetPlayerStatusText() string {
 // GetEnemyStatusText 獲取單一敵人狀態文字
 func (p *Player) GetEnemyStatusText() string {
 	if p.CurrentShell == nil {
-		return fmt.Sprintf("[::b]%s\n\n[gray]已被摧毀[-:-:-]", p.Name)
+		return fmt.Sprintf("[::b]%s\n\n[gray]靈體狀態[-:-:-]", p.Name)
 	}
 	var status strings.Builder
-	status.WriteString(fmt.Sprintf("[::b]%s\n", p.Name))
-	status.WriteString(fmt.Sprintf("%s\n", strings.Repeat("─", len(p.Name)+4)))
-	status.WriteString(fmt.Sprintf("[red]生命: %d / %d[-:-:-]\n", p.CurrentShell.Health, p.CurrentShell.MaxHealth))
-	status.WriteString(fmt.Sprintf("[orange]力量: %d[-:-:-]", p.CurrentShell.Strength))
+	shellName := strings.Split(p.CurrentShell.Name, " ")[0]
+	if p.CurrentShell.IsDefeated() {
+		status.WriteString(fmt.Sprintf("[::b]%s\n\n[purple]無主軀殼[-:-:-]", shellName))
+	} else {
+		status.WriteString(fmt.Sprintf("[::b]%s\n", p.Name))
+		status.WriteString(fmt.Sprintf("%s\n", strings.Repeat("─", len(p.Name)+4)))
+		status.WriteString(fmt.Sprintf("[red]生命: %d / %d[-:-:-]\n", p.CurrentShell.Health, p.CurrentShell.MaxHealth))
+		status.WriteString(fmt.Sprintf("[orange]力量: %d[-:-:-]", p.CurrentShell.Strength))
+	}
 	return status.String()
 }
 
 func main() {
 	// --- 遊戲設定 ---
 	slash := &AttackMove{Name: "揮砍", EnergyCost: 10, Damage: 15}
-	heavyStrike := &AttackMove{Name: "強力一擊", EnergyCost: 35, Damage: 45}
+	heavyStrike := &AttackMove{Name: "強力一擊", EnergyCost: 35, Damage: 80} // 提高傷害
 	stomp := &AttackMove{Name: "踐踏", EnergyCost: 1, Damage: 8}
 	bite := &AttackMove{Name: "啃咬", EnergyCost: 1, Damage: 12}
-	possessionCost := 40
+	directPossessionCost := 60
 
 	player := NewPlayer("英雄", 100)
 	player.CurrentShell = NewShell("人類軀殼", 100, 5, nil)
@@ -197,59 +206,55 @@ func main() {
 	instructions := tview.NewTextView()
 	instructions.SetDynamicColors(true)
 
-	// 將 ChangedFunc 先宣告為一個變數，方便之後移除和加回
 	var enemyListChanged func(int, string, string, rune)
 
-	// 完整的畫面更新函式
 	updateAllViews := func() {
 		playerStatus.SetText(player.GetPlayerStatusText())
 		targetStatus.SetText(enemies[currentTargetIndex].GetEnemyStatusText())
 
-		// 修正：在更新列表前，先移除回呼函式
 		enemyList.SetChangedFunc(nil)
-
 		enemyList.Clear()
 		for i, enemy := range enemies {
 			var status string
 			if enemy.CurrentShell == nil {
-				status = "[gray]已被摧毀"
+				status = "[gray]靈體"
+			} else if enemy.CurrentShell.IsDefeated() {
+				status = "[purple]無主軀殼"
 			} else {
 				status = fmt.Sprintf("生命: %d/%d", enemy.CurrentShell.Health, enemy.CurrentShell.MaxHealth)
 			}
-			mainText := fmt.Sprintf("%s %s", enemy.Name, status)
+			mainText := fmt.Sprintf("%s (%s)", enemy.Name, status)
 			if i == currentTargetIndex {
 				mainText = "[red]>> " + mainText + "[-:-:-]"
 			}
 			enemyList.AddItem(mainText, "", 0, nil)
 		}
 		enemyList.SetCurrentItem(currentTargetIndex)
-
-		// 修正：更新完列表後，再將回呼函式加回去
 		enemyList.SetChangedFunc(enemyListChanged)
 
-		// 更新指令提示
+		baseInstructions := ""
+		target := enemies[currentTargetIndex]
 		if player.CurrentShell != nil {
-			instructions.SetText(fmt.Sprintf("[yellow](1) %s | (2) %s | (m) %s | (Tab)切換 | (q)uit", slash.Name, heavyStrike.Name, "冥想"))
-		} else {
-			instructions.SetText(fmt.Sprintf("[yellow](p) 附身 (消耗 %d 能量) | (Tab)切換 | (q)uit", possessionCost))
+			baseInstructions = fmt.Sprintf("[yellow](1) %s | (2) %s | (m) %s", slash.Name, heavyStrike.Name, "冥想")
+			if target.CurrentShell != nil && target.CurrentShell.IsDefeated() {
+				baseInstructions += fmt.Sprintf(" | [green](x) 轉附身 (耗%d)[-:-:-]", directPossessionCost)
+			}
+		} else { // 靈體狀態
+			if target.CurrentShell != nil && target.CurrentShell.IsDefeated() {
+				baseInstructions = fmt.Sprintf("[green](x) 附身 (耗%d)[-:-:-]", directPossessionCost)
+			} else {
+				baseInstructions = "靈體狀態：尋找無主的軀殼"
+			}
 		}
+		instructions.SetText(baseInstructions + " | (Tab)切換 | (q)uit")
 	}
 
 	logHistory = append(logHistory, "戰鬥開始！")
-	updateAllViews() // 初始繪製
+	updateAllViews()
 
-	rightPanel := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(enemyList, 0, 1, true).
-		AddItem(targetStatus, 10, 0, false)
-
-	mainFlex := tview.NewFlex().
-		AddItem(playerStatus, 0, 1, false).
-		AddItem(rightPanel, 0, 1, true)
-
-	mainLayout := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(mainFlex, 0, 1, true).
-		AddItem(battleLog, 12, 0, false).
-		AddItem(instructions, 1, 0, false)
+	rightPanel := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(enemyList, 0, 1, true).AddItem(targetStatus, 10, 0, false)
+	mainFlex := tview.NewFlex().AddItem(playerStatus, 0, 1, false).AddItem(rightPanel, 0, 1, true)
+	mainLayout := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(mainFlex, 0, 1, true).AddItem(battleLog, 12, 0, false).AddItem(instructions, 1, 0, false)
 
 	// --- 遊戲邏輯與主迴圈 ---
 	cooldownDuration := 1 * time.Second
@@ -267,59 +272,72 @@ func main() {
 			var logsThisTick []string
 			var actionTaken bool = false
 
-			// 玩家行動邏輯
-			if player.CurrentShell != nil {
-				if player.CurrentShell.IsDefeated() {
-					player.CurrentShell = nil
-					logsThisTick = append(logsThisTick, "[orange]你的軀殼被摧毀了！你現在是靈體狀態。[-:-:-]")
+			// --- 玩家行動邏輯 ---
+			target := enemies[currentTargetIndex]
+
+			// 1. 處理附身 (可從任何狀態發起)
+			if nextPlayerDirectPossess {
+				if target.CurrentShell != nil && target.CurrentShell.IsDefeated() && player.Energy >= directPossessionCost {
+					if player.CurrentShell != nil {
+						logsThisTick = append(logsThisTick, fmt.Sprintf("[purple]你拋棄了 %s，附身到 %s 的軀殼上！[-:-:-]", player.CurrentShell.Name, target.Name))
+					} else {
+						logsThisTick = append(logsThisTick, fmt.Sprintf("[green]你以靈體狀態，成功附身到 %s 的軀殼上！[-:-:-]", target.Name))
+					}
+					player.LoseEnergy(directPossessionCost)
+
+					target.CurrentShell.Health = target.CurrentShell.MaxHealth // 恢復軀殼
+					player.CurrentShell = target.CurrentShell
+					target.CurrentShell = nil // 敵方靈魂被永久驅逐
+
+					player.CurrentShell.Cooldown = time.Now().Add(cooldownDuration)
 					actionTaken = true
-				} else if time.Now().After(player.CurrentShell.Cooldown) {
-					target := enemies[currentTargetIndex]
-					if nextPlayerAction != nil && target.CurrentShell != nil {
+				}
+			} else if player.CurrentShell != nil { // 2. 處理其他需要軀殼的行動
+				if time.Now().After(player.CurrentShell.Cooldown) {
+					if nextPlayerAction != nil {
 						logsThisTick = append(logsThisTick, player.Attack(target, nextPlayerAction)...)
 						player.CurrentShell.Cooldown = time.Now().Add(cooldownDuration)
-						nextPlayerAction = nil
 						actionTaken = true
 					} else if nextPlayerMeditate {
 						logsThisTick = append(logsThisTick, player.Meditate()...)
 						player.CurrentShell.Cooldown = time.Now().Add(cooldownDuration)
-						nextPlayerMeditate = false
 						actionTaken = true
 					}
 				}
-			} else {
-				player.GainEnergy(1)
-				if nextPlayerPossess {
-					player.CurrentShell = NewShell("人類軀殼", 100, 5, nil)
-					player.LoseEnergy(possessionCost)
-					logsThisTick = append(logsThisTick, "[green]你消耗能量附身到新的軀殼上！[-:-:-]")
-					nextPlayerPossess = false
-					actionTaken = true
-				}
 			}
 
-			// 敵人 AI 行動邏輯
+			// 重置所有預約
+			nextPlayerAction, nextPlayerMeditate, nextPlayerDirectPossess = nil, false, false
+
+			// 3. 處理被動效果
+			if player.CurrentShell == nil { // 靈體狀態
+				player.GainEnergy(1)
+			}
+
+			// --- 敵人 AI 行動邏輯 ---
 			allEnemiesDefeated := true
 			for _, enemy := range enemies {
 				if enemy.CurrentShell != nil {
 					if enemy.CurrentShell.IsDefeated() {
-						enemy.CurrentShell = nil
-						logsThisTick = append(logsThisTick, fmt.Sprintf("[red]%s 的軀殼已被摧毀！[-:-:-]", enemy.Name))
-						actionTaken = true
+						// 軀殼已被擊敗，等待被附身或消失
 					} else {
 						allEnemiesDefeated = false
-						if time.Now().After(enemy.CurrentShell.Cooldown) && player.CurrentShell != nil {
+						if time.Now().After(enemy.CurrentShell.Cooldown) && player.CurrentShell != nil && !player.CurrentShell.IsDefeated() {
 							logsThisTick = append(logsThisTick, "")
 							logsThisTick = append(logsThisTick, enemy.Attack(player, enemy.CurrentShell.AI_Attack)...)
 							enemy.CurrentShell.Cooldown = time.Now().Add(time.Duration(20+len(enemies)) * 100 * time.Millisecond)
 							actionTaken = true
+							if player.CurrentShell.IsDefeated() {
+								logsThisTick = append(logsThisTick, "[orange]你的軀殼被摧毀了！你現在是靈體狀態。[-:-:-]")
+								player.CurrentShell = nil
+							}
 						}
 					}
 				}
 			}
 
 			if allEnemiesDefeated && !gameIsOver {
-				logsThisTick = append(logsThisTick, "", "[::b][green]勝利！你擊敗了所有敵人！ 按(q)離開。")
+				logsThisTick = append(logsThisTick, "", "[::b][green]勝利！你擊敗了所有敵人的軀殼！ 按(q)離開。")
 				gameIsOver = true
 				actionTaken = true
 			}
@@ -365,25 +383,23 @@ func main() {
 			}
 		}
 
-		if player.CurrentShell != nil {
-			switch event.Rune() {
-			case '1':
-				if player.Energy >= slash.EnergyCost {
-					nextPlayerAction = slash
-					nextPlayerMeditate = false
-				}
-			case '2':
-				if player.Energy >= heavyStrike.EnergyCost {
-					nextPlayerAction = heavyStrike
-					nextPlayerMeditate = false
-				}
-			case 'm':
-				nextPlayerAction = nil
-				nextPlayerMeditate = true
+		switch event.Rune() {
+		case '1':
+			if player.CurrentShell != nil && player.Energy >= slash.EnergyCost {
+				nextPlayerAction, nextPlayerMeditate, nextPlayerDirectPossess = slash, false, false
 			}
-		} else {
-			if event.Rune() == 'p' && player.Energy >= possessionCost {
-				nextPlayerPossess = true
+		case '2':
+			if player.CurrentShell != nil && player.Energy >= heavyStrike.EnergyCost {
+				nextPlayerAction, nextPlayerMeditate, nextPlayerDirectPossess = heavyStrike, false, false
+			}
+		case 'm':
+			if player.CurrentShell != nil {
+				nextPlayerAction, nextPlayerMeditate, nextPlayerDirectPossess = nil, true, false
+			}
+		case 'x':
+			target := enemies[currentTargetIndex]
+			if target.CurrentShell != nil && target.CurrentShell.IsDefeated() && player.Energy >= directPossessionCost {
+				nextPlayerAction, nextPlayerMeditate, nextPlayerDirectPossess = nil, false, true
 			}
 		}
 
