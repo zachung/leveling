@@ -36,7 +36,7 @@ type Player struct {
 
 	// 動作狀態機 (玩家與敵人都使用)
 	ActionState      string
-	ActionStartTime  time.Time // 修正：新增動作起始時間
+	ActionStartTime  time.Time
 	StateFinishTime  time.Time
 	EffectTime       time.Time
 	EffectApplied    bool
@@ -123,10 +123,33 @@ func (p *Player) Attack(target *Player, move *AttackMove) []string {
 func createProgressBar(startTime, endTime time.Time, width int, color string) string {
 	totalDuration := endTime.Sub(startTime)
 	if totalDuration <= 0 {
-		return ""
+		return strings.Repeat(" ", width+2) // 返回空格以維持排版
 	}
 	elapsed := time.Since(startTime)
 	progress := float64(elapsed) / float64(totalDuration)
+	if progress < 0 {
+		progress = 0
+	}
+	if progress > 1 {
+		progress = 1
+	}
+
+	filledWidth := int(progress * float64(width))
+
+	bar := fmt.Sprintf("[%s]", color)
+	bar += strings.Repeat("█", filledWidth)
+	bar += "[gray]"
+	bar += strings.Repeat("░", width-filledWidth)
+	bar += "[-:-:-]"
+	return bar
+}
+
+// createValueBar 創建一個基於數值的進度條
+func createValueBar(current, max, width int, color string) string {
+	if max <= 0 {
+		return ""
+	}
+	progress := float64(current) / float64(max)
 	if progress < 0 {
 		progress = 0
 	}
@@ -149,10 +172,16 @@ func (p *Player) GetPlayerStatusText() string {
 	var status strings.Builder
 	status.WriteString(fmt.Sprintf("[::b]%s\n", p.Name))
 	status.WriteString(fmt.Sprintf("%s\n", strings.Repeat("─", len(p.Name)+4)))
-	status.WriteString(fmt.Sprintf("[blue]能量: %d / %d[-:-:-]\n", p.Energy, p.MaxEnergy))
 
 	if p.CurrentShell != nil {
 		status.WriteString(fmt.Sprintf("[red]生命: %d / %d[-:-:-]\n", p.CurrentShell.Health, p.CurrentShell.MaxHealth))
+		status.WriteString(createValueBar(p.CurrentShell.Health, p.CurrentShell.MaxHealth, 20, "red") + "\n")
+	}
+
+	status.WriteString(fmt.Sprintf("[blue]能量: %d / %d[-:-:-]\n", p.Energy, p.MaxEnergy))
+	status.WriteString(createValueBar(p.Energy, p.MaxEnergy, 20, "blue") + "\n")
+
+	if p.CurrentShell != nil {
 		status.WriteString(fmt.Sprintf("[orange]力量: %d[-:-:-]\n", p.CurrentShell.Strength))
 	}
 
@@ -206,7 +235,22 @@ func (p *Player) GetEnemyStatusText() string {
 		status.WriteString(fmt.Sprintf("[::b]%s\n", p.Name))
 		status.WriteString(fmt.Sprintf("%s\n", strings.Repeat("─", len(p.Name)+4)))
 		status.WriteString(fmt.Sprintf("[red]生命: %d / %d[-:-:-]\n", p.CurrentShell.Health, p.CurrentShell.MaxHealth))
-		status.WriteString(fmt.Sprintf("[orange]力量: %d[-:-:-]", p.CurrentShell.Strength))
+		status.WriteString(createValueBar(p.CurrentShell.Health, p.CurrentShell.MaxHealth, 20, "red") + "\n")
+		status.WriteString(fmt.Sprintf("[orange]力量: %d[-:-:-]\n", p.CurrentShell.Strength))
+
+		now := time.Now()
+		switch p.ActionState {
+		case "Casting":
+			if now.Before(p.EffectTime) {
+				status.WriteString(fmt.Sprintf("[yellow]施法中: %s (%.1fs)[-:-:-]\n", p.CastingMove.Name, time.Until(p.EffectTime).Seconds()))
+				status.WriteString(createProgressBar(p.ActionStartTime, p.EffectTime, 20, "yellow"))
+			} else {
+				status.WriteString(fmt.Sprintf("[red]冷卻中 (%.1fs)[-:-:-]\n", time.Until(p.StateFinishTime).Seconds()))
+				status.WriteString(createProgressBar(p.EffectTime, p.StateFinishTime, 20, "red"))
+			}
+		case "Idle":
+			status.WriteString("[green]狀態: 可行動[-:-:-]")
+		}
 	}
 	return status.String()
 }
@@ -246,7 +290,7 @@ func main() {
 	targetStatus := tview.NewTextView()
 	targetStatus.SetDynamicColors(true).SetTextAlign(tview.AlignCenter).SetBorder(true).SetTitle("鎖定目標")
 	enemyList := tview.NewList()
-	enemyList.ShowSecondaryText(false).SetBorder(true).SetTitle("敵人清單 (用 ↑/↓ 選擇)")
+	enemyList.ShowSecondaryText(false).SetBorder(true).SetTitle("敵人清單")
 	battleLog := tview.NewTextView()
 	battleLog.SetDynamicColors(true).SetScrollable(true).SetBorder(true).SetTitle("戰鬥日誌")
 	instructions := tview.NewTextView()
@@ -267,12 +311,15 @@ func main() {
 			} else if enemy.CurrentShell.IsDefeated() {
 				status = "[purple]無主軀殼"
 			} else {
-				status = fmt.Sprintf("生命: %d/%d", enemy.CurrentShell.Health, enemy.CurrentShell.MaxHealth)
+				status = createValueBar(enemy.CurrentShell.Health, enemy.CurrentShell.MaxHealth, 10, "red")
 			}
-			mainText := fmt.Sprintf("%s (%s)", enemy.Name, status)
+
+			prefix := "  "
 			if i == currentTargetIndex {
-				mainText = "[red]>> " + mainText + "[-:-:-]"
+				prefix = "[red]>>[-:-:-]"
 			}
+			mainText := fmt.Sprintf("%s %-8s %s", prefix, enemy.Name, status)
+
 			enemyList.AddItem(mainText, "", 0, nil)
 		}
 		enemyList.SetCurrentItem(currentTargetIndex)
@@ -281,18 +328,18 @@ func main() {
 		baseInstructions := ""
 		target := enemies[currentTargetIndex]
 		if player.CurrentShell != nil {
-			baseInstructions = fmt.Sprintf("[yellow](1) %s | (2) %s | (m) %s", slash.Name, heavyStrike.Name, "冥想")
+			baseInstructions = fmt.Sprintf("[yellow](q) %s | (w) %s | (e) %s", slash.Name, heavyStrike.Name, "冥想")
 			if target.CurrentShell != nil && target.CurrentShell.IsDefeated() {
-				baseInstructions += fmt.Sprintf(" | [green](x) 附身 (耗%d)[-:-:-]", directPossessionCost)
+				baseInstructions += fmt.Sprintf(" | [green](r) 附身 (耗%d)[-:-:-]", directPossessionCost)
 			}
 		} else {
 			if target.CurrentShell != nil && target.CurrentShell.IsDefeated() {
-				baseInstructions = fmt.Sprintf("[green](x) 附身 (耗%d)[-:-:-]", directPossessionCost)
+				baseInstructions = fmt.Sprintf("[green](r) 附身 (耗%d)[-:-:-]", directPossessionCost)
 			} else {
 				baseInstructions = "靈體狀態：尋找無主的軀殼"
 			}
 		}
-		instructions.SetText(baseInstructions + " | (Tab)切換 | (q)uit")
+		instructions.SetText(baseInstructions + " | (1-3)選敵 | (Esc)離開")
 	}
 
 	logHistory = append(logHistory, "戰鬥開始！")
@@ -300,7 +347,10 @@ func main() {
 
 	rightPanel := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(enemyList, 0, 1, true).AddItem(targetStatus, 10, 0, false)
 	mainFlex := tview.NewFlex().AddItem(playerStatus, 0, 1, false).AddItem(rightPanel, 0, 1, true)
-	mainLayout := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(mainFlex, 0, 1, true).AddItem(battleLog, 12, 0, false).AddItem(instructions, 1, 0, false)
+	mainLayout := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(mainFlex, 0, 2, true).
+		AddItem(battleLog, 0, 1, false).
+		AddItem(instructions, 1, 0, false)
 
 	// --- 遊戲邏輯與主迴圈 ---
 	var gameIsOver bool = false
@@ -450,6 +500,7 @@ func main() {
 					}
 				} else {
 					playerStatus.SetText(player.GetPlayerStatusText())
+					targetStatus.SetText(enemies[currentTargetIndex].GetEnemyStatusText())
 				}
 			})
 		}
@@ -463,38 +514,54 @@ func main() {
 	enemyList.SetChangedFunc(enemyListChanged)
 
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Rune() == 'q' {
+		// 優先處理通用按鍵
+		switch event.Key() {
+		case tcell.KeyEsc:
 			app.Stop()
-			return event
-		}
-		if gameIsOver {
-			return event
+			return nil
+		case tcell.KeyTab:
+			currentTargetIndex = (currentTargetIndex + 1) % len(enemies)
+			updateAllViews()
+			return nil
+		case tcell.KeyBacktab: // Shift+Tab
+			currentTargetIndex = (currentTargetIndex - 1 + len(enemies)) % len(enemies)
+			updateAllViews()
+			return nil
 		}
 
-		if app.GetFocus() == enemyList {
-			if event.Key() == tcell.KeyUp || event.Key() == tcell.KeyDown {
-				return event
-			}
+		if gameIsOver {
+			return event
 		}
 
 		if player.ActionState == "Channeling" {
 			player.ActionState = "Idle"
 		}
 
-		switch event.Rune() {
-		case '1':
+		// 處理 Rune (字元) 按鍵
+		rune := event.Rune()
+		if rune >= '1' && rune <= '9' {
+			index := int(rune - '1')
+			if index < len(enemies) {
+				currentTargetIndex = index
+				updateAllViews()
+			}
+			return event
+		}
+
+		switch rune {
+		case 'q':
 			if player.CurrentShell != nil && player.Energy >= slash.EnergyCost {
 				nextPlayerAction, nextPlayerMeditate, nextPlayerPossess = slash, false, false
 			}
-		case '2':
+		case 'w':
 			if player.CurrentShell != nil && player.Energy >= heavyStrike.EnergyCost {
 				nextPlayerAction, nextPlayerMeditate, nextPlayerPossess = heavyStrike, false, false
 			}
-		case 'm':
+		case 'e':
 			if player.CurrentShell != nil {
 				nextPlayerAction, nextPlayerMeditate, nextPlayerPossess = nil, true, false
 			}
-		case 'x':
+		case 'r':
 			target := enemies[currentTargetIndex]
 			if target.CurrentShell != nil && target.CurrentShell.IsDefeated() && player.Energy >= directPossessionCost {
 				nextPlayerAction, nextPlayerMeditate, nextPlayerPossess = nil, false, true
