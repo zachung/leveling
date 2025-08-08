@@ -16,6 +16,7 @@ type AttackMove struct {
 	Damage         int           // 造成傷害 (削減生命)
 	CastTime       time.Duration // 施法時間
 	ActionCooldown time.Duration // 動作冷卻
+	IsAoE          bool          // 是否為範圍攻擊
 }
 
 // Shell 代表一個可被附身的軀殼
@@ -24,7 +25,7 @@ type Shell struct {
 	Health    int
 	MaxHealth int
 	Strength  int // 力量屬性，影響傷害
-	AI_Attack *AttackMove
+	Skills    []*AttackMove
 }
 
 // Player 代表玩家或敵人的核心靈魂
@@ -79,13 +80,13 @@ func NewPlayer(name string, energy int, isSlime bool, replications int) *Player 
 }
 
 // NewShell 創建一個新的軀殼實例
-func NewShell(name string, health int, strength int, aiAttack *AttackMove) *Shell {
+func NewShell(name string, health int, strength int, skills []*AttackMove) *Shell {
 	return &Shell{
 		Name:      name,
 		Health:    health,
 		MaxHealth: health,
 		Strength:  strength,
-		AI_Attack: aiAttack,
+		Skills:    skills,
 	}
 }
 
@@ -119,21 +120,35 @@ func (p *Player) LoseEnergy(amount int) {
 }
 
 // Attack 讓玩家驅動軀殼攻擊目標
-func (p *Player) Attack(target *Player, move *AttackMove) []string {
+func (p *Player) Attack(mainTarget *Player, allPossibleTargets []*Player, move *AttackMove) []string {
 	if p.CurrentShell == nil {
 		return []string{"靈體狀態無法攻擊！"}
 	}
-	if target.CurrentShell == nil || target.CurrentShell.IsDefeated() {
-		return []string{fmt.Sprintf("目標 %s 的軀殼已無靈魂，無法攻擊。", target.Name)}
+
+	// 對於單體攻擊，檢查主目標是否有效
+	if !move.IsAoE && (mainTarget.CurrentShell == nil || mainTarget.CurrentShell.IsDefeated()) {
+		return []string{fmt.Sprintf("目標 %s 的軀殼已無靈魂，無法攻擊。", mainTarget.Name)}
 	}
 
-	logs := []string{fmt.Sprintf("➡️ %s 的 [%s] 擊中了 %s！", p.Name, move.Name, target.Name)}
+	logs := []string{fmt.Sprintf("➡️ %s 的 [%s] 擊中了目標！", p.Name, move.Name)}
 	p.LoseEnergy(move.EnergyCost)
 	logs = append(logs, fmt.Sprintf("   %s 消耗了 %d 點能量。", p.Name, move.EnergyCost))
 
 	finalDamage := move.Damage + p.CurrentShell.Strength
-	target.CurrentShell.LoseHealth(finalDamage)
-	logs = append(logs, fmt.Sprintf("   對 %s 的軀殼造成了 %d 點傷害！ (%d 基礎 + %d 力量)", target.Name, finalDamage, move.Damage, p.CurrentShell.Strength))
+
+	if move.IsAoE {
+		logs = append(logs, "   這是一個範圍攻擊！")
+		for _, target := range allPossibleTargets {
+			if target != p && target.CurrentShell != nil && !target.CurrentShell.IsDefeated() {
+				target.CurrentShell.LoseHealth(finalDamage)
+				logs = append(logs, fmt.Sprintf("   對 %s 的軀殼造成了 %d 點傷害！", target.Name, finalDamage))
+			}
+		}
+	} else {
+		// 單體攻擊
+		mainTarget.CurrentShell.LoseHealth(finalDamage)
+		logs = append(logs, fmt.Sprintf("   對 %s 的軀殼造成了 %d 點傷害！ (%d 基礎 + %d 力量)", mainTarget.Name, finalDamage, move.Damage, p.CurrentShell.Strength))
+	}
 
 	return logs
 }
@@ -276,26 +291,26 @@ func (p *Player) GetEnemyStatusText() string {
 
 func main() {
 	// --- 遊戲設定 ---
-	slash := &AttackMove{Name: "揮砍", EnergyCost: 10, Damage: 15, CastTime: 0, ActionCooldown: 500 * time.Millisecond}
-	heavyStrike := &AttackMove{Name: "強力一擊", EnergyCost: 35, Damage: 80, CastTime: 1 * time.Second, ActionCooldown: 1 * time.Second}
-	stomp := &AttackMove{Name: "踐踏", EnergyCost: 1, Damage: 8, CastTime: 500 * time.Millisecond, ActionCooldown: 2 * time.Second}
-	bite := &AttackMove{Name: "啃咬", EnergyCost: 1, Damage: 12, CastTime: 500 * time.Millisecond, ActionCooldown: 2 * time.Second}
+	slash := &AttackMove{Name: "揮砍", EnergyCost: 10, Damage: 15, CastTime: 0, ActionCooldown: 500 * time.Millisecond, IsAoE: false}
+	heavyStrike := &AttackMove{Name: "強力一擊", EnergyCost: 35, Damage: 80, CastTime: 1 * time.Second, ActionCooldown: 1 * time.Second, IsAoE: false}
+	stomp := &AttackMove{Name: "踐踏", EnergyCost: 1, Damage: 8, CastTime: 500 * time.Millisecond, ActionCooldown: 2 * time.Second, IsAoE: true}
+	bite := &AttackMove{Name: "啃咬", EnergyCost: 1, Damage: 12, CastTime: 500 * time.Millisecond, ActionCooldown: 2 * time.Second, IsAoE: false}
 
 	possessionCastTime := 2 * time.Second
 	possessionCooldown := 1 * time.Second
 	directPossessionCost := 60
 
 	player := NewPlayer("英雄", 100, false, 0)
-	player.CurrentShell = NewShell("人類軀殼", 500, 5, nil)
+	player.CurrentShell = NewShell("人類軀殼", 500, 5, []*AttackMove{slash, heavyStrike})
 
 	enemies := []*Player{
 		NewPlayer("哥布林", 999, false, 0),
 		NewPlayer("史萊姆", 999, true, 0),
 		NewPlayer("骷髏兵", 999, false, 0),
 	}
-	enemies[0].CurrentShell = NewShell("哥布林軀殼", 80, 2, stomp)
-	enemies[1].CurrentShell = NewShell("凝膠軀殼", 60, 5, bite)
-	enemies[2].CurrentShell = NewShell("骸骨軀殼", 120, 8, stomp)
+	enemies[0].CurrentShell = NewShell("哥布林軀殼", 80, 2, []*AttackMove{stomp})
+	enemies[1].CurrentShell = NewShell("凝膠軀殼", 60, 5, []*AttackMove{bite})
+	enemies[2].CurrentShell = NewShell("骸骨軀殼", 120, 8, []*AttackMove{stomp})
 
 	var currentTargetIndex int = 0
 
@@ -352,7 +367,16 @@ func main() {
 		if currentTargetIndex < len(enemies) {
 			target := enemies[currentTargetIndex]
 			if player.CurrentShell != nil {
-				baseInstructions = fmt.Sprintf("[yellow](q) %s | (w) %s | (e) %s", slash.Name, heavyStrike.Name, "冥想")
+				skillText := []string{}
+				skillKeys := []rune{'q', 'w'}
+				for i, skill := range player.CurrentShell.Skills {
+					if i < len(skillKeys) {
+						skillText = append(skillText, fmt.Sprintf("[yellow](%c) %s", skillKeys[i], skill.Name))
+					}
+				}
+				skillText = append(skillText, "[yellow](e) 冥想")
+				baseInstructions = strings.Join(skillText, " | ")
+
 				if target.CurrentShell != nil && target.CurrentShell.IsDefeated() {
 					baseInstructions += fmt.Sprintf(" | [green](r) 附身 (耗%d)[-:-:-]", directPossessionCost)
 				}
@@ -438,7 +462,7 @@ func main() {
 								target.CurrentShell = nil
 							}
 						} else {
-							logsThisTick = append(logsThisTick, player.Attack(target, player.CastingMove)...)
+							logsThisTick = append(logsThisTick, player.Attack(target, enemies, player.CastingMove)...)
 						}
 						player.EffectApplied = true
 						actionTaken = true
@@ -497,10 +521,10 @@ func main() {
 						allEnemiesDefeated = false
 						switch enemy.ActionState {
 						case "Idle":
-							if player.CurrentShell != nil {
+							if player.CurrentShell != nil && len(enemy.CurrentShell.Skills) > 0 {
 								enemy.ActionState = "Casting"
 								enemy.ActionStartTime = now
-								enemy.CastingMove = enemy.CurrentShell.AI_Attack
+								enemy.CastingMove = enemy.CurrentShell.Skills[0] // AI 使用第一個技能
 								enemy.EffectTime = now.Add(enemy.CastingMove.CastTime)
 								enemy.StateFinishTime = now.Add(enemy.CastingMove.CastTime + enemy.CastingMove.ActionCooldown)
 								enemy.EffectApplied = false
@@ -509,7 +533,7 @@ func main() {
 						case "Casting":
 							if !enemy.EffectApplied && now.After(enemy.EffectTime) {
 								logsThisTick = append(logsThisTick, "")
-								logsThisTick = append(logsThisTick, enemy.Attack(player, enemy.CastingMove)...)
+								logsThisTick = append(logsThisTick, enemy.Attack(player, []*Player{player}, enemy.CastingMove)...)
 								enemy.EffectApplied = true
 								actionTaken = true
 							}
@@ -599,9 +623,9 @@ func main() {
 		}
 
 		// 處理 Rune (字元) 按鍵
-		rune := event.Rune()
-		if rune >= '1' && rune <= '9' {
-			index := int(rune - '1')
+		runeKey := event.Rune()
+		if runeKey >= '1' && runeKey <= '9' {
+			index := int(runeKey - '1')
 			if index < len(enemies) {
 				currentTargetIndex = index
 				updateAllViews()
@@ -609,14 +633,20 @@ func main() {
 			return event
 		}
 
-		switch rune {
+		switch runeKey {
 		case 'q':
-			if player.CurrentShell != nil && player.Energy >= slash.EnergyCost {
-				nextPlayerAction, nextPlayerMeditate, nextPlayerPossess = slash, false, false
+			if player.CurrentShell != nil && len(player.CurrentShell.Skills) > 0 {
+				skill := player.CurrentShell.Skills[0]
+				if player.Energy >= skill.EnergyCost {
+					nextPlayerAction, nextPlayerMeditate, nextPlayerPossess = skill, false, false
+				}
 			}
 		case 'w':
-			if player.CurrentShell != nil && player.Energy >= heavyStrike.EnergyCost {
-				nextPlayerAction, nextPlayerMeditate, nextPlayerPossess = heavyStrike, false, false
+			if player.CurrentShell != nil && len(player.CurrentShell.Skills) > 1 {
+				skill := player.CurrentShell.Skills[1]
+				if player.Energy >= skill.EnergyCost {
+					nextPlayerAction, nextPlayerMeditate, nextPlayerPossess = skill, false, false
+				}
 			}
 		case 'e':
 			if player.CurrentShell != nil {
