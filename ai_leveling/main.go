@@ -42,6 +42,7 @@ type Player struct {
 	EffectTime      time.Time // 施法/引導結束時間
 	EffectApplied   bool
 	CastingMove     *AttackMove
+	CastingTarget   *Player // 施法鎖定的目標
 	LastChannelTick time.Time
 	SkillCooldowns  map[string]time.Time // 技能冷卻計時器
 
@@ -62,10 +63,31 @@ type PendingSpawn struct {
 	MaxReplications  int
 }
 
-// 預約的行動
-var nextPlayerAction *AttackMove
-var nextPlayerMeditate bool
-var nextPlayerPossess bool
+// Battle 結構封裝了一場戰鬥的所有狀態和 UI
+type Battle struct {
+	app *tview.Application
+
+	player  *Player
+	enemies []*Player
+
+	currentTargetIndex int
+	logHistory         []string
+	pendingSpawns      []PendingSpawn
+	gameIsOver         bool
+
+	// 預約的行動
+	nextPlayerAction   *AttackMove
+	nextPlayerMeditate bool
+	nextPlayerPossess  bool
+
+	// UI 元件
+	playerStatus *tview.TextView
+	targetStatus *tview.TextView
+	enemyList    *tview.List
+	battleLog    *tview.TextView
+	instructions *tview.TextView
+	mainLayout   *tview.Flex
+}
 
 // NewPlayer 創建一個新的靈魂實例
 func NewPlayer(name string, energy int, isSlime bool, replications int) *Player {
@@ -127,11 +149,6 @@ func (p *Player) Attack(mainTarget *Player, allPossibleTargets []*Player, move *
 		return []string{"靈體狀態無法攻擊！"}
 	}
 
-	// 對於單體攻擊，檢查主目標是否有效
-	if !move.IsAoE && (mainTarget.CurrentShell == nil || mainTarget.CurrentShell.IsDefeated()) {
-		return []string{fmt.Sprintf("目標 %s 的軀殼已無靈魂，無法攻擊。", mainTarget.Name)}
-	}
-
 	logs := []string{fmt.Sprintf("➡️ %s 的 [%s] 擊中了目標！", p.Name, move.Name)}
 
 	finalDamage := move.Damage + p.CurrentShell.Strength
@@ -145,7 +162,9 @@ func (p *Player) Attack(mainTarget *Player, allPossibleTargets []*Player, move *
 			}
 		}
 	} else {
-		// 單體攻擊
+		if mainTarget.CurrentShell == nil || mainTarget.CurrentShell.IsDefeated() {
+			return []string{fmt.Sprintf("目標 %s 的軀殼已無靈魂，攻擊無效。", mainTarget.Name)}
+		}
 		mainTarget.CurrentShell.LoseHealth(finalDamage)
 		logs = append(logs, fmt.Sprintf("   對 %s 的軀殼造成了 %d 點傷害！ (%d 基礎 + %d 力量)", mainTarget.Name, finalDamage, move.Damage, p.CurrentShell.Strength))
 	}
@@ -157,7 +176,7 @@ func (p *Player) Attack(mainTarget *Player, allPossibleTargets []*Player, move *
 func createProgressBar(startTime, endTime time.Time, width int, color string) string {
 	totalDuration := endTime.Sub(startTime)
 	if totalDuration <= 0 {
-		return strings.Repeat(" ", width+2) // 返回空格以維持排版
+		return strings.Repeat(" ", width+2)
 	}
 	elapsed := time.Since(startTime)
 	progress := float64(elapsed) / float64(totalDuration)
@@ -202,7 +221,7 @@ func createValueBar(current, max, width int, color string) string {
 }
 
 // GetPlayerStatusText 獲取玩家狀態文字
-func (p *Player) GetPlayerStatusText() string {
+func (p *Player) GetPlayerStatusText(b *Battle) string {
 	var status strings.Builder
 	status.WriteString(fmt.Sprintf("[::b]%s\n", p.Name))
 	status.WriteString(fmt.Sprintf("%s\n", strings.Repeat("─", len(p.Name)+4)))
@@ -233,11 +252,11 @@ func (p *Player) GetPlayerStatusText() string {
 
 	if p.ActionState == "Idle" {
 		var queuedAction string
-		if nextPlayerAction != nil {
-			queuedAction = fmt.Sprintf("預約: %s", nextPlayerAction.Name)
-		} else if nextPlayerMeditate {
+		if b.nextPlayerAction != nil {
+			queuedAction = fmt.Sprintf("預約: %s", b.nextPlayerAction.Name)
+		} else if b.nextPlayerMeditate {
 			queuedAction = "預約: 冥想"
-		} else if nextPlayerPossess {
+		} else if b.nextPlayerPossess {
 			queuedAction = "預約: 附身"
 		}
 		if queuedAction != "" {
@@ -275,18 +294,17 @@ func (p *Player) GetEnemyStatusText() string {
 	return status.String()
 }
 
-func main() {
+// NewBattle 創建一個新的戰鬥實例
+func NewBattle(app *tview.Application) *Battle {
 	// --- 遊戲設定 ---
 	slash := &AttackMove{Name: "揮砍", EnergyCost: 10, Damage: 15, CastTime: 0, ActionCooldown: 1 * time.Second, IsAoE: false}
 	heavyStrike := &AttackMove{Name: "強力一擊", EnergyCost: 35, Damage: 80, CastTime: 1 * time.Second, ActionCooldown: 2 * time.Second, IsAoE: false}
 	stomp := &AttackMove{Name: "踐踏", EnergyCost: 20, Damage: 4, CastTime: 2 * time.Second, ActionCooldown: 4 * time.Second, IsAoE: true, IsChanneling: true}
 	bite := &AttackMove{Name: "啃咬", EnergyCost: 10, Damage: 12, CastTime: 0, ActionCooldown: 1 * time.Second, IsAoE: false}
-
-	possessionCastTime := 2 * time.Second
-	directPossessionCost := 60
+	soulEjection := &AttackMove{Name: "靈魂出竅", EnergyCost: 10, CastTime: 500 * time.Millisecond}
 
 	player := NewPlayer("英雄", 100, false, 0)
-	player.CurrentShell = NewShell("人類軀殼", 500, 5, []*AttackMove{slash, heavyStrike})
+	player.CurrentShell = NewShell("人類軀殼", 500, 5, []*AttackMove{slash, heavyStrike, soulEjection})
 
 	enemies := []*Player{
 		NewPlayer("哥布林", 999, false, 0),
@@ -297,378 +315,411 @@ func main() {
 	enemies[1].CurrentShell = NewShell("凝膠軀殼", 60, 5, []*AttackMove{bite})
 	enemies[2].CurrentShell = NewShell("骸骨軀殼", 120, 8, []*AttackMove{stomp})
 
-	var currentTargetIndex int = 0
-
-	// --- TUI 介面設定 ---
-	app := tview.NewApplication()
-	var logHistory []string
-	const maxLogLines = 100
-
-	playerStatus := tview.NewTextView()
-	playerStatus.SetDynamicColors(true).SetTextAlign(tview.AlignCenter).SetBorder(true).SetTitle("你的狀態")
-	targetStatus := tview.NewTextView()
-	targetStatus.SetDynamicColors(true).SetTextAlign(tview.AlignCenter).SetBorder(true).SetTitle("鎖定目標")
-	enemyList := tview.NewList()
-	enemyList.ShowSecondaryText(false).SetBorder(true).SetTitle("敵人清單")
-	battleLog := tview.NewTextView()
-	battleLog.SetDynamicColors(true).SetScrollable(true).SetBorder(true).SetTitle("戰鬥日誌")
-	instructions := tview.NewTextView()
-	instructions.SetDynamicColors(true)
-
-	var enemyListChanged func(int, string, string, rune)
-
-	updateAllViews := func() {
-		playerStatus.SetText(player.GetPlayerStatusText())
-		if currentTargetIndex < len(enemies) {
-			targetStatus.SetText(enemies[currentTargetIndex].GetEnemyStatusText())
-		}
-
-		enemyList.SetChangedFunc(nil)
-		enemyList.Clear()
-		for i, enemy := range enemies {
-			var status string
-			if enemy.CurrentShell == nil {
-				status = "[gray]靈體"
-			} else if enemy.CurrentShell.IsDefeated() {
-				status = "[purple]無主軀殼"
-			} else {
-				status = createValueBar(enemy.CurrentShell.Health, enemy.CurrentShell.MaxHealth, 10, "red")
-			}
-
-			prefix := "  "
-			if i == currentTargetIndex {
-				prefix = "[red]>>[-:-:-]"
-			}
-			mainText := fmt.Sprintf("%s %-8s %s", prefix, enemy.Name, status)
-
-			enemyList.AddItem(mainText, "", 0, nil)
-		}
-		if currentTargetIndex < len(enemies) {
-			enemyList.SetCurrentItem(currentTargetIndex)
-		}
-		enemyList.SetChangedFunc(enemyListChanged)
-
-		baseInstructions := ""
-		if currentTargetIndex < len(enemies) {
-			target := enemies[currentTargetIndex]
-			if player.CurrentShell != nil {
-				skillText := []string{}
-				skillKeys := []rune{'q', 'w'}
-				now := time.Now()
-				for i, skill := range player.CurrentShell.Skills {
-					if i < len(skillKeys) {
-						cd, onCD := player.SkillCooldowns[skill.Name]
-						if onCD && now.Before(cd) {
-							skillText = append(skillText, fmt.Sprintf("[gray](%c) %s (%.1fs)", skillKeys[i], skill.Name, time.Until(cd).Seconds()))
-						} else {
-							skillText = append(skillText, fmt.Sprintf("[yellow](%c) %s", skillKeys[i], skill.Name))
-						}
-					}
-				}
-				skillText = append(skillText, "[yellow](e) 冥想")
-				baseInstructions = strings.Join(skillText, " | ")
-
-				if target.CurrentShell != nil && target.CurrentShell.IsDefeated() {
-					baseInstructions += fmt.Sprintf(" | [green](r) 附身 (耗%d)[-:-:-]", directPossessionCost)
-				}
-			} else {
-				if target.CurrentShell != nil && target.CurrentShell.IsDefeated() {
-					baseInstructions = fmt.Sprintf("[green](r) 附身 (耗%d)[-:-:-]", directPossessionCost)
-				} else {
-					baseInstructions = "靈體狀態：尋找無主的軀殼"
-				}
-			}
-		}
-		instructions.SetText(baseInstructions + " | (1-9)選敵 | (Esc)離開")
+	b := &Battle{
+		app:        app,
+		player:     player,
+		enemies:    enemies,
+		logHistory: []string{"戰鬥開始！"},
 	}
 
-	logHistory = append(logHistory, "戰鬥開始！")
-	updateAllViews()
+	b.playerStatus = tview.NewTextView()
+	b.playerStatus.SetDynamicColors(true).SetTextAlign(tview.AlignCenter).SetBorder(true).SetTitle("你的狀態")
+	b.targetStatus = tview.NewTextView()
+	b.targetStatus.SetDynamicColors(true).SetTextAlign(tview.AlignCenter).SetBorder(true).SetTitle("鎖定目標")
+	b.enemyList = tview.NewList()
+	b.enemyList.ShowSecondaryText(false).SetBorder(true).SetTitle("敵人清單")
+	b.battleLog = tview.NewTextView()
+	b.battleLog.SetDynamicColors(true).SetScrollable(true).SetBorder(true).SetTitle("戰鬥日誌")
+	b.instructions = tview.NewTextView()
+	b.instructions.SetDynamicColors(true)
 
-	rightPanel := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(enemyList, 0, 1, true).AddItem(targetStatus, 10, 0, false)
-	mainFlex := tview.NewFlex().AddItem(playerStatus, 0, 1, false).AddItem(rightPanel, 0, 1, true)
-	mainLayout := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(mainFlex, 0, 2, true).
-		AddItem(battleLog, 0, 1, false).
-		AddItem(instructions, 1, 0, false)
+	return b
+}
 
-	// --- 遊戲邏輯與主迴圈 ---
-	var gameIsOver bool = false
-	var pendingSpawns []PendingSpawn
+// updateAllViews 更新所有 UI 元件
+func (b *Battle) updateAllViews() {
+	b.playerStatus.SetText(b.player.GetPlayerStatusText(b))
+	if b.currentTargetIndex < len(b.enemies) {
+		b.targetStatus.SetText(b.enemies[b.currentTargetIndex].GetEnemyStatusText())
+	}
 
-	go func() {
-		ticker := time.NewTicker(100 * time.Millisecond)
-		defer ticker.Stop()
+	enemyListChanged := newEnemyListChanged(b)
+	b.enemyList.SetChangedFunc(nil)
+	b.enemyList.Clear()
+	for i, enemy := range b.enemies {
+		var status string
+		if enemy.CurrentShell == nil {
+			status = "[gray]靈體"
+		} else if enemy.CurrentShell.IsDefeated() {
+			status = "[purple]無主軀殼"
+		} else {
+			status = createValueBar(enemy.CurrentShell.Health, enemy.CurrentShell.MaxHealth, 10, "red")
+		}
 
-		for range ticker.C {
-			if gameIsOver {
-				continue
-			}
+		prefix := "  "
+		if i == b.currentTargetIndex {
+			prefix = "[red]>>[-:-:-]"
+		}
+		mainText := fmt.Sprintf("%s %-8s %s", prefix, enemy.Name, status)
 
-			var logsThisTick []string
-			var actionTaken bool = false
+		b.enemyList.AddItem(mainText, "", 0, nil)
+	}
+	if b.currentTargetIndex < len(b.enemies) {
+		b.enemyList.SetCurrentItem(b.currentTargetIndex)
+	}
+	b.enemyList.SetChangedFunc(enemyListChanged)
+
+	baseInstructions := ""
+	if b.currentTargetIndex < len(b.enemies) {
+		target := b.enemies[b.currentTargetIndex]
+		if b.player.CurrentShell != nil {
+			skillText := []string{}
+			skillKeys := []rune{'q', 'w'}
 			now := time.Now()
-
-			// --- 玩家行動邏輯 ---
-			if currentTargetIndex < len(enemies) {
-				target := enemies[currentTargetIndex]
-
-				switch player.ActionState {
-				case "Idle":
-					if nextPlayerMeditate {
-						player.ActionState = "Channeling"
-						player.CastingMove = &AttackMove{Name: "冥想"}
-						player.LastChannelTick = now
-						actionTaken = true
-					} else if nextPlayerAction != nil {
-						state := "Casting"
-						if nextPlayerAction.IsChanneling {
-							state = "Channeling"
-							player.LastChannelTick = now
-						}
-						player.ActionState = state
-						player.ActionStartTime = now
-						player.CastingMove = nextPlayerAction
-						player.EffectTime = now.Add(nextPlayerAction.CastTime)
-						player.EffectApplied = false
-						actionTaken = true
-					} else if nextPlayerPossess {
-						player.ActionState = "Casting"
-						player.ActionStartTime = now
-						player.CastingMove = &AttackMove{Name: "附身"}
-						player.EffectTime = now.Add(possessionCastTime)
-						player.EffectApplied = false
-						actionTaken = true
-					}
-					nextPlayerAction, nextPlayerMeditate, nextPlayerPossess = nil, false, false
-
-				case "Casting":
-					if !player.EffectApplied && now.After(player.EffectTime) {
-						if player.CastingMove.Name == "附身" {
-							if target.CurrentShell != nil && target.CurrentShell.IsDefeated() {
-								if player.CurrentShell != nil {
-									logsThisTick = append(logsThisTick, fmt.Sprintf("[purple]你拋棄了 %s，附身到 %s 的軀殼上！[-:-:-]", player.CurrentShell.Name, target.Name))
-								} else {
-									logsThisTick = append(logsThisTick, fmt.Sprintf("[green]你以靈體狀態，成功附身到 %s 的軀殼上！[-:-:-]", target.Name))
-								}
-								player.LoseEnergy(directPossessionCost)
-								target.CurrentShell.Health = target.CurrentShell.MaxHealth
-								player.CurrentShell = target.CurrentShell
-								target.CurrentShell = nil
-							}
-						} else {
-							logsThisTick = append(logsThisTick, player.Attack(target, enemies, player.CastingMove)...)
-						}
-						player.SkillCooldowns[player.CastingMove.Name] = now.Add(player.CastingMove.ActionCooldown)
-						player.ActionState = "Idle"
-						actionTaken = true
-					}
-
-				case "Channeling":
-					if nextPlayerAction != nil || nextPlayerPossess {
-						player.ActionState = "Idle"
-						actionTaken = true
+			for i, skill := range b.player.CurrentShell.Skills {
+				if i < len(skillKeys) {
+					cd, onCD := b.player.SkillCooldowns[skill.Name]
+					if onCD && now.Before(cd) {
+						skillText = append(skillText, fmt.Sprintf("[gray](%c) %s (%.1fs)", skillKeys[i], skill.Name, time.Until(cd).Seconds()))
 					} else {
-						if now.After(player.EffectTime) { // 引導結束
-							player.SkillCooldowns[player.CastingMove.Name] = now.Add(player.CastingMove.ActionCooldown)
-							player.ActionState = "Idle"
-							actionTaken = true
-						} else if now.Sub(player.LastChannelTick) >= 500*time.Millisecond {
-							if player.CastingMove.Name == "冥想" {
-								player.GainEnergy(5)
-							} else if player.CastingMove.Name == "踐踏" {
-								logsThisTick = append(logsThisTick, "[yellow]踐踏造成了範圍傷害！[-:-:-]")
-								finalDamage := player.CastingMove.Damage + player.CurrentShell.Strength
-								for _, t := range enemies {
-									if t.CurrentShell != nil && !t.CurrentShell.IsDefeated() {
-										t.CurrentShell.LoseHealth(finalDamage)
-										logsThisTick = append(logsThisTick, fmt.Sprintf("   對 %s 的軀殼造成了 %d 點傷害！", t.Name, finalDamage))
-									}
-								}
-							}
-							player.LastChannelTick = now
-							actionTaken = true
-						}
+						skillText = append(skillText, fmt.Sprintf("[yellow](%c) %s", skillKeys[i], skill.Name))
 					}
 				}
 			}
+			skillText = append(skillText, "[yellow](e) 冥想")
+			baseInstructions = strings.Join(skillText, " | ")
 
-			// 被動效果
-			if player.CurrentShell == nil && player.ActionState == "Idle" {
-				player.GainEnergy(1)
+			if target.CurrentShell != nil && target.CurrentShell.IsDefeated() {
+				baseInstructions += fmt.Sprintf(" | [green](r) 附身[-:-:-]")
+			} else {
+				baseInstructions += " | [purple](r) 靈魂出竅[-:-:-]"
 			}
-			if player.CurrentShell != nil && player.CurrentShell.IsDefeated() {
-				logsThisTick = append(logsThisTick, "[orange]你的軀殼被摧毀了！你現在是靈體狀態。[-:-:-]")
-				player.CurrentShell = nil
-				player.ActionState = "Idle"
-				actionTaken = true
+		} else {
+			if target.CurrentShell != nil && target.CurrentShell.IsDefeated() {
+				baseInstructions = fmt.Sprintf("[green](r) 附身[-:-:-]")
+			} else {
+				baseInstructions = "靈體狀態：尋找無主的軀殼"
 			}
-
-			// --- 敵人 AI 行動邏輯 ---
-			allEnemiesDefeated := true
-			for _, enemy := range enemies {
-				if enemy.CurrentShell != nil {
-					if enemy.CurrentShell.IsDefeated() {
-						if enemy.IsSlime && enemy.ReplicationCount < enemy.MaxReplications {
-							newShell := *enemy.CurrentShell
-							newShell.Health = newShell.MaxHealth / 2
-							newShell.MaxHealth = newShell.MaxHealth / 2
-
-							pendingSpawns = append(pendingSpawns, PendingSpawn{
-								SpawnTime:        now.Add(2 * time.Second),
-								Name:             fmt.Sprintf("%s 分裂體", enemy.Name),
-								Energy:           999,
-								Shell:            &newShell,
-								IsSlime:          true,
-								ReplicationCount: enemy.ReplicationCount + 1,
-								MaxReplications:  enemy.MaxReplications,
-							})
-							enemy.ReplicationCount = enemy.MaxReplications
-						}
-					} else {
-						allEnemiesDefeated = false
-						if enemy.ActionState == "Idle" && player.CurrentShell != nil && len(enemy.CurrentShell.Skills) > 0 {
-							skill := enemy.CurrentShell.Skills[0]
-							if now.After(enemy.SkillCooldowns[skill.Name]) {
-								enemy.ActionState = "Casting"
-								enemy.ActionStartTime = now
-								enemy.CastingMove = skill
-								enemy.EffectTime = now.Add(enemy.CastingMove.CastTime)
-								enemy.EffectApplied = false
-								actionTaken = true
-							}
-						} else if enemy.ActionState == "Casting" {
-							if !enemy.EffectApplied && now.After(enemy.EffectTime) {
-								logsThisTick = append(logsThisTick, "")
-								logsThisTick = append(logsThisTick, enemy.Attack(player, []*Player{player}, enemy.CastingMove)...)
-								enemy.EffectApplied = true
-								enemy.SkillCooldowns[enemy.CastingMove.Name] = now.Add(enemy.CastingMove.ActionCooldown)
-								enemy.ActionState = "Idle"
-								actionTaken = true
-							}
-						}
-					}
-				}
-			}
-
-			// 處理重生
-			remainingSpawns := []PendingSpawn{}
-			for _, spawn := range pendingSpawns {
-				if now.After(spawn.SpawnTime) {
-					newEnemy := NewPlayer(spawn.Name, spawn.Energy, spawn.IsSlime, spawn.ReplicationCount)
-					newEnemy.CurrentShell = spawn.Shell
-					enemies = append(enemies, newEnemy)
-					logsThisTick = append(logsThisTick, fmt.Sprintf("[green]%s 重生了！[-:-:-]", spawn.Name))
-					actionTaken = true
-				} else {
-					remainingSpawns = append(remainingSpawns, spawn)
-				}
-			}
-			pendingSpawns = remainingSpawns
-
-			if allEnemiesDefeated && !gameIsOver {
-				logsThisTick = append(logsThisTick, "", "[::b][green]勝利！你擊敗了所有敵人的軀殼！ 按(q)離開。")
-				gameIsOver = true
-				actionTaken = true
-			}
-
-			if len(logsThisTick) > 0 {
-				logHistory = append(logHistory, logsThisTick...)
-				if len(logHistory) > maxLogLines {
-					logHistory = logHistory[len(logHistory)-maxLogLines:]
-				}
-			}
-
-			app.QueueUpdateDraw(func() {
-				if actionTaken {
-					updateAllViews()
-					if len(logsThisTick) > 0 {
-						battleLog.SetText(strings.Join(logHistory, "\n"))
-						battleLog.ScrollToEnd()
-					}
-				} else {
-					playerStatus.SetText(player.GetPlayerStatusText())
-					if currentTargetIndex < len(enemies) {
-						targetStatus.SetText(enemies[currentTargetIndex].GetEnemyStatusText())
-					}
-				}
-			})
 		}
-	}()
-
-	// --- 輸入處理 ---
-	enemyListChanged = func(index int, mainText string, secondaryText string, shortcut rune) {
-		currentTargetIndex = index
-		updateAllViews()
 	}
-	enemyList.SetChangedFunc(enemyListChanged)
+	b.instructions.SetText(baseInstructions + " | (1-9)選敵 | (Esc)離開")
+}
 
-	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+// gameLoop 是戰鬥的主迴圈
+func (b *Battle) gameLoop() {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if b.gameIsOver {
+			continue
+		}
+
+		var logsThisTick []string
+		var actionTaken bool = false
+		now := time.Now()
+
+		// --- 玩家行動邏輯 ---
+		switch b.player.ActionState {
+		case "Idle":
+			if b.nextPlayerMeditate {
+				b.player.ActionState = "Channeling"
+				b.player.CastingMove = &AttackMove{Name: "冥想"}
+				b.player.LastChannelTick = now
+				actionTaken = true
+			} else if b.nextPlayerAction != nil {
+				state := "Casting"
+				if b.nextPlayerAction.IsChanneling {
+					state = "Channeling"
+					b.player.LastChannelTick = now
+				}
+				b.player.ActionState = state
+				b.player.ActionStartTime = now
+				b.player.CastingMove = b.nextPlayerAction
+				b.player.EffectTime = now.Add(b.nextPlayerAction.CastTime)
+				b.player.EffectApplied = false
+				actionTaken = true
+			} else if b.nextPlayerPossess {
+				b.player.ActionState = "Casting"
+				b.player.ActionStartTime = now
+				b.player.CastingMove = &AttackMove{Name: "附身"}
+				b.player.EffectTime = now.Add(2 * time.Second)
+				b.player.EffectApplied = false
+				actionTaken = true
+			}
+			b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = nil, false, false
+
+		case "Casting":
+			if !b.player.EffectApplied && now.After(b.player.EffectTime) {
+				target := b.player.CastingTarget
+				if b.player.CastingMove.Name == "附身" {
+					if target.CurrentShell != nil && target.CurrentShell.IsDefeated() {
+						if b.player.CurrentShell != nil {
+							logsThisTick = append(logsThisTick, fmt.Sprintf("[purple]你拋棄了 %s，附身到 %s 的軀殼上！[-:-:-]", b.player.CurrentShell.Name, target.Name))
+						} else {
+							logsThisTick = append(logsThisTick, fmt.Sprintf("[green]你以靈體狀態，成功附身到 %s 的軀殼上！[-:-:-]", target.Name))
+						}
+						b.player.LoseEnergy(60)
+						target.CurrentShell.Health = target.CurrentShell.MaxHealth
+						b.player.CurrentShell = target.CurrentShell
+						target.CurrentShell = nil
+					}
+				} else if b.player.CastingMove.Name == "靈魂出竅" {
+					logsThisTick = append(logsThisTick, "[purple]你施展了靈魂出竅，脫離了當前的軀殼！[-:-:-]")
+					b.player.CurrentShell = nil
+				} else {
+					logsThisTick = append(logsThisTick, b.player.Attack(target, b.enemies, b.player.CastingMove)...)
+				}
+				b.player.SkillCooldowns[b.player.CastingMove.Name] = now.Add(b.player.CastingMove.ActionCooldown)
+				b.player.ActionState = "Idle"
+				actionTaken = true
+			}
+
+		case "Channeling":
+			if b.nextPlayerAction != nil || b.nextPlayerPossess {
+				b.player.ActionState = "Idle"
+				actionTaken = true
+			} else {
+				if now.After(b.player.EffectTime) {
+					b.player.SkillCooldowns[b.player.CastingMove.Name] = now.Add(b.player.CastingMove.ActionCooldown)
+					b.player.ActionState = "Idle"
+					actionTaken = true
+				} else if now.Sub(b.player.LastChannelTick) >= 500*time.Millisecond {
+					if b.player.CastingMove.Name == "冥想" {
+						b.player.GainEnergy(5)
+					} else if b.player.CastingMove.Name == "踐踏" {
+						logsThisTick = append(logsThisTick, "[yellow]踐踏造成了範圍傷害！[-:-:-]")
+						finalDamage := b.player.CastingMove.Damage + b.player.CurrentShell.Strength
+						for _, t := range b.enemies {
+							if t.CurrentShell != nil && !t.CurrentShell.IsDefeated() {
+								t.CurrentShell.LoseHealth(finalDamage)
+								logsThisTick = append(logsThisTick, fmt.Sprintf("   對 %s 的軀殼造成了 %d 點傷害！", t.Name, finalDamage))
+							}
+						}
+					}
+					b.player.LastChannelTick = now
+					actionTaken = true
+				}
+			}
+		}
+
+		if b.player.CurrentShell == nil && b.player.ActionState == "Idle" {
+			b.player.GainEnergy(1)
+		}
+		if b.player.CurrentShell != nil && b.player.CurrentShell.IsDefeated() {
+			logsThisTick = append(logsThisTick, "[orange]你的軀殼被摧毀了！你現在是靈體狀態。[-:-:-]")
+			b.player.CurrentShell = nil
+			b.player.ActionState = "Idle"
+			actionTaken = true
+		}
+
+		allEnemiesDefeated := true
+		for _, enemy := range b.enemies {
+			if enemy.CurrentShell != nil {
+				if enemy.CurrentShell.IsDefeated() {
+					if enemy.IsSlime && enemy.ReplicationCount < enemy.MaxReplications {
+						newShell := *enemy.CurrentShell
+						newShell.Health = newShell.MaxHealth / 2
+						newShell.MaxHealth = newShell.MaxHealth / 2
+						b.pendingSpawns = append(b.pendingSpawns, PendingSpawn{SpawnTime: now.Add(2 * time.Second), Name: fmt.Sprintf("%s 分裂體", enemy.Name), Energy: 999, Shell: &newShell, IsSlime: true, ReplicationCount: enemy.ReplicationCount + 1, MaxReplications: enemy.MaxReplications})
+						enemy.ReplicationCount = enemy.MaxReplications
+					}
+				} else {
+					allEnemiesDefeated = false
+					if enemy.ActionState == "Idle" && b.player.CurrentShell != nil && len(enemy.CurrentShell.Skills) > 0 {
+						skill := enemy.CurrentShell.Skills[0]
+						if now.After(enemy.SkillCooldowns[skill.Name]) {
+							enemy.ActionState = "Casting"
+							enemy.ActionStartTime = now
+							enemy.CastingMove = skill
+							enemy.EffectTime = now.Add(enemy.CastingMove.CastTime)
+							enemy.EffectApplied = false
+							enemy.CastingTarget = b.player
+							actionTaken = true
+						}
+					} else if enemy.ActionState == "Casting" {
+						if !enemy.EffectApplied && now.After(enemy.EffectTime) {
+							logsThisTick = append(logsThisTick, "")
+							logsThisTick = append(logsThisTick, enemy.Attack(enemy.CastingTarget, []*Player{b.player}, enemy.CastingMove)...)
+							enemy.EffectApplied = true
+							enemy.SkillCooldowns[enemy.CastingMove.Name] = now.Add(enemy.CastingMove.ActionCooldown)
+							enemy.ActionState = "Idle"
+							actionTaken = true
+						}
+					}
+				}
+			}
+		}
+
+		remainingSpawns := []PendingSpawn{}
+		for _, spawn := range b.pendingSpawns {
+			if now.After(spawn.SpawnTime) {
+				newEnemy := NewPlayer(spawn.Name, spawn.Energy, spawn.IsSlime, spawn.ReplicationCount)
+				newEnemy.CurrentShell = spawn.Shell
+				b.enemies = append(b.enemies, newEnemy)
+				logsThisTick = append(logsThisTick, fmt.Sprintf("[green]%s 重生了！[-:-:-]", spawn.Name))
+				actionTaken = true
+			} else {
+				remainingSpawns = append(remainingSpawns, spawn)
+			}
+		}
+		b.pendingSpawns = remainingSpawns
+
+		if allEnemiesDefeated && !b.gameIsOver {
+			logsThisTick = append(logsThisTick, "", "[::b][green]勝利！你擊敗了所有敵人的軀殼！ 按(q)離開。")
+			b.gameIsOver = true
+			actionTaken = true
+		}
+
+		if len(logsThisTick) > 0 {
+			b.logHistory = append(b.logHistory, logsThisTick...)
+			maxLogLines := 30
+			if len(b.logHistory) > maxLogLines {
+				b.logHistory = b.logHistory[len(b.logHistory)-maxLogLines:]
+			}
+		}
+
+		b.app.QueueUpdateDraw(func() {
+			if actionTaken {
+				b.updateAllViews()
+				if len(logsThisTick) > 0 {
+					b.battleLog.SetText(strings.Join(b.logHistory, "\n"))
+					b.battleLog.ScrollToEnd()
+				}
+			} else {
+				b.playerStatus.SetText(b.player.GetPlayerStatusText(b))
+				if b.currentTargetIndex < len(b.enemies) {
+					b.targetStatus.SetText(b.enemies[b.currentTargetIndex].GetEnemyStatusText())
+				}
+			}
+		})
+	}
+}
+
+// SetupUI 設置並返回戰鬥畫面的根元件
+func (b *Battle) SetupUI() tview.Primitive {
+	b.updateAllViews()
+
+	rightPanel := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(b.enemyList, 0, 1, true).AddItem(b.targetStatus, 10, 0, false)
+	mainFlex := tview.NewFlex().AddItem(b.playerStatus, 0, 1, false).AddItem(rightPanel, 0, 1, true)
+	b.mainLayout = tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(mainFlex, 0, 2, true).
+		AddItem(b.battleLog, 0, 1, false).
+		AddItem(b.instructions, 1, 0, false)
+
+	b.setupInputHandling()
+	return b.mainLayout
+}
+
+func newEnemyListChanged(b *Battle) func(index int, mainText string, secondaryText string, shortcut rune) {
+	return func(index int, mainText string, secondaryText string, shortcut rune) {
+		b.currentTargetIndex = index
+		b.updateAllViews()
+	}
+}
+
+// setupInputHandling 設置按鍵輸入處理
+func (b *Battle) setupInputHandling() {
+	enemyListChanged := newEnemyListChanged(b)
+	b.enemyList.SetChangedFunc(enemyListChanged)
+
+	b.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyEsc:
-			app.Stop()
+			b.app.Stop()
 			return nil
 		case tcell.KeyTab:
-			currentTargetIndex = (currentTargetIndex + 1) % len(enemies)
-			updateAllViews()
+			nextIndex := (b.currentTargetIndex + 1) % len(b.enemies)
+			for nextIndex != b.currentTargetIndex {
+				if b.enemies[nextIndex].CurrentShell != nil {
+					b.currentTargetIndex = nextIndex
+					b.updateAllViews()
+					return nil
+				}
+				nextIndex = (nextIndex + 1) % len(b.enemies)
+			}
 			return nil
-		case tcell.KeyBacktab:
-			currentTargetIndex = (currentTargetIndex - 1 + len(enemies)) % len(enemies)
-			updateAllViews()
+		case tcell.KeyBacktab: // Shift+Tab
+			nextIndex := (b.currentTargetIndex - 1 + len(b.enemies)) % len(b.enemies)
+			for nextIndex != b.currentTargetIndex {
+				if b.enemies[nextIndex].CurrentShell != nil {
+					b.currentTargetIndex = nextIndex
+					b.updateAllViews()
+					return nil
+				}
+				nextIndex = (nextIndex - 1 + len(b.enemies)) % len(b.enemies)
+			}
 			return nil
 		}
 
-		if gameIsOver {
+		if b.gameIsOver {
 			return event
 		}
 
-		if player.ActionState == "Channeling" {
-			player.ActionState = "Idle"
+		if b.player.ActionState == "Channeling" {
+			b.player.ActionState = "Idle"
 		}
 
 		runeKey := event.Rune()
 		if runeKey >= '1' && runeKey <= '9' {
 			index := int(runeKey - '1')
-			if index < len(enemies) {
-				currentTargetIndex = index
-				updateAllViews()
+			if index < len(b.enemies) {
+				b.currentTargetIndex = index
+				b.updateAllViews()
 			}
 			return event
 		}
 
 		now := time.Now()
+		target := b.enemies[b.currentTargetIndex]
+
 		switch runeKey {
 		case 'q':
-			if player.CurrentShell != nil && len(player.CurrentShell.Skills) > 0 {
-				skill := player.CurrentShell.Skills[0]
-				if now.After(player.SkillCooldowns[skill.Name]) && player.Energy >= skill.EnergyCost {
-					nextPlayerAction, nextPlayerMeditate, nextPlayerPossess = skill, false, false
+			if b.player.CurrentShell != nil && len(b.player.CurrentShell.Skills) > 0 {
+				skill := b.player.CurrentShell.Skills[0]
+				if now.After(b.player.SkillCooldowns[skill.Name]) && b.player.Energy >= skill.EnergyCost && target.CurrentShell != nil && !target.CurrentShell.IsDefeated() {
+					b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = skill, false, false
+					b.player.CastingTarget = target
 				}
 			}
 		case 'w':
-			if player.CurrentShell != nil && len(player.CurrentShell.Skills) > 1 {
-				skill := player.CurrentShell.Skills[1]
-				if now.After(player.SkillCooldowns[skill.Name]) && player.Energy >= skill.EnergyCost {
-					nextPlayerAction, nextPlayerMeditate, nextPlayerPossess = skill, false, false
+			if b.player.CurrentShell != nil && len(b.player.CurrentShell.Skills) > 1 {
+				skill := b.player.CurrentShell.Skills[1]
+				if now.After(b.player.SkillCooldowns[skill.Name]) && b.player.Energy >= skill.EnergyCost && target.CurrentShell != nil && !target.CurrentShell.IsDefeated() {
+					b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = skill, false, false
+					b.player.CastingTarget = target
 				}
 			}
 		case 'e':
-			if player.CurrentShell != nil {
-				nextPlayerAction, nextPlayerMeditate, nextPlayerPossess = nil, true, false
+			if b.player.CurrentShell != nil {
+				b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = nil, true, false
 			}
 		case 'r':
-			if currentTargetIndex < len(enemies) {
-				target := enemies[currentTargetIndex]
-				if target.CurrentShell != nil && target.CurrentShell.IsDefeated() && player.Energy >= directPossessionCost {
-					nextPlayerAction, nextPlayerMeditate, nextPlayerPossess = nil, false, true
+			if b.player.CurrentShell != nil { // 靈魂出竅
+				skill := &AttackMove{Name: "靈魂出竅", EnergyCost: 10, CastTime: 500 * time.Millisecond}
+				if b.player.Energy >= skill.EnergyCost {
+					b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = skill, false, false
+					b.player.CastingTarget = nil // 無目標
+				}
+			} else { // 附身
+				if target.CurrentShell != nil && target.CurrentShell.IsDefeated() && b.player.Energy >= 60 {
+					b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = nil, false, true
+					b.player.CastingTarget = target
 				}
 			}
 		}
 
 		return event
 	})
+}
 
-	if err := app.SetRoot(mainLayout, true).SetFocus(mainLayout).Run(); err != nil {
+func main() {
+	app := tview.NewApplication()
+	battle := NewBattle(app)
+
+	go battle.gameLoop()
+
+	if err := app.SetRoot(battle.SetupUI(), true).SetFocus(battle.mainLayout).Run(); err != nil {
 		panic(err)
 	}
 }
