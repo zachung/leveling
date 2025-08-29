@@ -480,14 +480,20 @@ func (b *Battle) gameLoop() {
 				b.player.ActionState = "Idle"
 				actionTaken = true
 			} else {
-				if now.After(b.player.EffectTime) {
-					b.player.SkillCooldowns[b.player.CastingMove.Name] = now.Add(b.player.CastingMove.ActionCooldown)
-					b.player.ActionState = "Idle"
-					actionTaken = true
-				} else if now.Sub(b.player.LastChannelTick) >= 500*time.Millisecond {
-					if b.player.CastingMove.Name == "冥想" {
+				// 修正：區分持續引導和有時間限制的引導
+				switch b.player.CastingMove.Name {
+				case "冥想":
+					if now.Sub(b.player.LastChannelTick) >= 500*time.Millisecond {
 						b.player.GainEnergy(5)
-					} else if b.player.CastingMove.Name == "踐踏" {
+						b.player.LastChannelTick = now
+						actionTaken = true
+					}
+				case "踐踏":
+					if now.After(b.player.EffectTime) {
+						b.player.SkillCooldowns[b.player.CastingMove.Name] = now.Add(b.player.CastingMove.ActionCooldown)
+						b.player.ActionState = "Idle"
+						actionTaken = true
+					} else if now.Sub(b.player.LastChannelTick) >= 500*time.Millisecond {
 						logsThisTick = append(logsThisTick, "[yellow]踐踏造成了範圍傷害！[-:-:-]")
 						finalDamage := b.player.CastingMove.Damage + b.player.CurrentShell.Strength
 						for _, t := range b.enemies {
@@ -496,9 +502,9 @@ func (b *Battle) gameLoop() {
 								logsThisTick = append(logsThisTick, fmt.Sprintf("   對 %s 的軀殼造成了 %d 點傷害！", t.Name, finalDamage))
 							}
 						}
+						b.player.LastChannelTick = now
+						actionTaken = true
 					}
-					b.player.LastChannelTick = now
-					actionTaken = true
 				}
 			}
 		}
@@ -656,7 +662,6 @@ func (b *Battle) setupInputHandling() {
 			return event
 		}
 
-		// 修正：如果玩家正在施法或已有預約動作，則忽略新的技能輸入
 		if b.player.ActionState != "Idle" || b.nextPlayerAction != nil || b.nextPlayerMeditate || b.nextPlayerPossess {
 			return event
 		}
@@ -682,7 +687,6 @@ func (b *Battle) setupInputHandling() {
 		case 'q':
 			if b.player.CurrentShell != nil && len(b.player.CurrentShell.Skills) > 0 {
 				skill := b.player.CurrentShell.Skills[0]
-				// 修正：加入範圍技能的目標判斷
 				if now.After(b.player.SkillCooldowns[skill.Name]) && b.player.Energy >= skill.EnergyCost && (skill.IsAoE || (target.CurrentShell != nil && !target.CurrentShell.IsDefeated())) {
 					b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = skill, false, false
 					b.player.CastingTarget = target
