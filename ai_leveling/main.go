@@ -74,7 +74,7 @@ type Battle struct {
 	logHistory          []string
 	pendingSpawns       []PendingSpawn
 	gameIsOver          bool
-	interruptChanneling bool // 新增：中斷引導的旗標
+	interruptChanneling bool
 
 	// 預約的行動
 	nextPlayerAction   *AttackMove
@@ -239,32 +239,53 @@ func (p *Player) GetPlayerStatusText(b *Battle) string {
 		status.WriteString(fmt.Sprintf("[orange]力量: %d[-:-:-]\n", p.CurrentShell.Strength))
 	}
 
-	switch p.ActionState {
-	case "Casting":
-		status.WriteString(fmt.Sprintf("[yellow]%s: %s (%.1fs)[-:-:-]\n", p.ActionState, p.CastingMove.Name, time.Until(p.EffectTime).Seconds()))
-		status.WriteString(createProgressBar(p.ActionStartTime, p.EffectTime, 20, "yellow"))
-	case "Channeling":
-		status.WriteString(fmt.Sprintf("[green]引導中: %s (Esc 中斷)[-:-:-]", p.CastingMove.Name))
-	case "Idle":
-		if p.CurrentShell != nil {
-			status.WriteString("[green]狀態: 可行動[-:-:-]")
-		} else {
-			status.WriteString("[purple]狀態: 靈體[-:-:-]")
-		}
-	}
+	// 技能列
+	status.WriteString("\n" + strings.Repeat("─", 24) + "\n")
+	now := time.Now()
 
-	if p.ActionState == "Idle" {
-		var queuedAction string
-		if b.nextPlayerAction != nil {
-			queuedAction = fmt.Sprintf("預約: %s", b.nextPlayerAction.Name)
-		} else if b.nextPlayerMeditate {
-			queuedAction = "預約: 冥想"
-		} else if b.nextPlayerPossess {
-			queuedAction = "預約: 附身"
+	if p.CurrentShell != nil {
+		skillKeys := []rune{'q', 'w'}
+		for i, skill := range p.CurrentShell.Skills {
+			if i < len(skillKeys) {
+				key := skillKeys[i]
+				status.WriteString(fmt.Sprintf("(%c) %-8s ", key, skill.Name))
+				if p.ActionState != "Idle" && p.CastingMove.Name == skill.Name {
+					status.WriteString(createProgressBar(p.ActionStartTime, p.EffectTime, 10, "yellow"))
+				} else {
+					cd, onCD := p.SkillCooldowns[skill.Name]
+					if onCD && now.Before(cd) {
+						status.WriteString(createProgressBar(cd.Add(-skill.ActionCooldown), cd, 10, "red"))
+					} else {
+						status.WriteString("[green]準備就緒[-:-:-]")
+					}
+				}
+				status.WriteString("\n")
+			}
 		}
-		if queuedAction != "" {
-			status.WriteString(fmt.Sprintf("\n[cyan]%s[-:-:-]", queuedAction))
+		// 靈魂技能
+		status.WriteString(fmt.Sprintf("(e) %-8s ", "冥想"))
+		if p.ActionState == "Channeling" && p.CastingMove.Name == "冥想" {
+			status.WriteString("[green]引導中...[-:-:-]")
+		} else {
+			status.WriteString("[green]準備就緒[-:-:-]")
 		}
+		status.WriteString("\n")
+
+		target := b.enemies[b.currentTargetIndex]
+		if target.CurrentShell != nil && target.CurrentShell.IsDefeated() {
+			status.WriteString(fmt.Sprintf("(r) %-8s ", "附身"))
+		} else {
+			status.WriteString(fmt.Sprintf("(r) %-8s ", "靈魂出竅"))
+		}
+		if p.ActionState == "Casting" && (p.CastingMove.Name == "附身" || p.CastingMove.Name == "靈魂出竅") {
+			status.WriteString(createProgressBar(p.ActionStartTime, p.EffectTime, 10, "yellow"))
+		} else {
+			status.WriteString("[green]準備就緒[-:-:-]")
+		}
+		status.WriteString("\n")
+
+	} else {
+		status.WriteString("[purple]狀態: 靈體[-:-:-]\n")
 	}
 
 	return status.String()
@@ -372,40 +393,7 @@ func (b *Battle) updateAllViews() {
 	}
 	b.enemyList.SetChangedFunc(enemyListChanged)
 
-	baseInstructions := ""
-	if b.currentTargetIndex < len(b.enemies) {
-		target := b.enemies[b.currentTargetIndex]
-		if b.player.CurrentShell != nil {
-			skillText := []string{}
-			skillKeys := []rune{'q', 'w'}
-			now := time.Now()
-			for i, skill := range b.player.CurrentShell.Skills {
-				if i < len(skillKeys) {
-					cd, onCD := b.player.SkillCooldowns[skill.Name]
-					if onCD && now.Before(cd) {
-						skillText = append(skillText, fmt.Sprintf("[gray](%c) %s (%.1fs)", skillKeys[i], skill.Name, time.Until(cd).Seconds()))
-					} else {
-						skillText = append(skillText, fmt.Sprintf("[yellow](%c) %s", skillKeys[i], skill.Name))
-					}
-				}
-			}
-			skillText = append(skillText, "[yellow](e) 冥想")
-			baseInstructions = strings.Join(skillText, " | ")
-
-			if target.CurrentShell != nil && target.CurrentShell.IsDefeated() {
-				baseInstructions += fmt.Sprintf(" | [green](r) 附身[-:-:-]")
-			} else {
-				baseInstructions += " | [purple](r) 靈魂出竅[-:-:-]"
-			}
-		} else {
-			if target.CurrentShell != nil && target.CurrentShell.IsDefeated() {
-				baseInstructions = fmt.Sprintf("[green](r) 附身[-:-:-]")
-			} else {
-				baseInstructions = "靈體狀態：尋找無主的軀殼"
-			}
-		}
-	}
-	b.instructions.SetText(baseInstructions + " | (1-9)選敵 | (Ctrl+C)離開")
+	b.instructions.SetText("(1-9)選敵 | (Tab/Shift+Tab)切換 | (Ctrl+C)離開")
 }
 
 // gameLoop 是戰鬥的主迴圈
