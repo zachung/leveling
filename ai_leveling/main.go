@@ -14,6 +14,7 @@ type AttackMove struct {
 	Name           string        // 招式名稱
 	EnergyCost     int           // 消耗能量
 	Damage         int           // 造成傷害 (削減生命)
+	HealAmount     int           // 治療量
 	PreCastTime    time.Duration // 施法前搖
 	CastTime       time.Duration // 施法/引導時間
 	ActionCooldown time.Duration // 動作冷卻
@@ -121,6 +122,14 @@ func (s *Shell) LoseHealth(amount int) {
 	s.Health -= amount
 	if s.Health < 0 {
 		s.Health = 0
+	}
+}
+
+// Heal 恢復軀殼的生命
+func (s *Shell) Heal(amount int) {
+	s.Health += amount
+	if s.Health > s.MaxHealth {
+		s.Health = s.MaxHealth
 	}
 }
 
@@ -270,7 +279,7 @@ func (p *Player) GetPlayerStatusText(b *Battle) string {
 	now := time.Now()
 
 	if p.CurrentShell != nil {
-		skillKeys := []rune{'q', 'w'}
+		skillKeys := []rune{'q', 'w', 'e', 'r', 'a', 's', 'd', 'f'}
 		for i, skill := range p.CurrentShell.Skills {
 			if i < len(skillKeys) {
 				key := skillKeys[i]
@@ -294,7 +303,7 @@ func (p *Player) GetPlayerStatusText(b *Battle) string {
 			}
 		}
 		// 靈魂技能
-		leftPart := fmt.Sprintf("(e) %-8s", "冥想")
+		leftPart := fmt.Sprintf("(z) %-8s", "冥想")
 		var rightPart string
 		if p.ActionState == "Channeling" && p.CastingMove.Name == "冥想" {
 			rightPart = "[blue]" + strings.Repeat("█", 10) + "[-:-:-]"
@@ -304,13 +313,13 @@ func (p *Player) GetPlayerStatusText(b *Battle) string {
 		status.WriteString(fmt.Sprintf("%-14s %s\n", leftPart, rightPart))
 
 		target := b.enemies[b.currentTargetIndex]
-		var rSkillName string
+		var xSkillName string
 		if target.CurrentShell != nil && target.CurrentShell.IsDefeated() {
-			rSkillName = "附身"
+			xSkillName = "附身"
 		} else {
-			rSkillName = "靈魂出竅"
+			xSkillName = "靈魂出竅"
 		}
-		leftPart = fmt.Sprintf("(r) %-8s", rSkillName)
+		leftPart = fmt.Sprintf("(x) %-8s", xSkillName)
 		if p.ActionState == "Casting" && (p.CastingMove.Name == "附身" || p.CastingMove.Name == "靈魂出竅") {
 			rightPart = createProgressBar(p.ActionStartTime, p.EffectTime, 10, "yellow")
 		} else {
@@ -322,7 +331,7 @@ func (p *Player) GetPlayerStatusText(b *Battle) string {
 		status.WriteString("[purple]狀態: 靈體[-:-:-]\n")
 		target := b.enemies[b.currentTargetIndex]
 		if target.CurrentShell != nil && target.CurrentShell.IsDefeated() {
-			leftPart := fmt.Sprintf("(r) %-8s", "附身")
+			leftPart := fmt.Sprintf("(x) %-8s", "附身")
 			var rightPart string
 			if p.ActionState == "Casting" && p.CastingMove.Name == "附身" {
 				rightPart = createProgressBar(p.ActionStartTime, p.EffectTime, 10, "yellow")
@@ -366,14 +375,15 @@ func (p *Player) GetEnemyStatusText() string {
 // NewBattle 創建一個新的戰鬥實例
 func NewBattle(app *tview.Application) *Battle {
 	// --- 遊戲設定 ---
-	slash := &AttackMove{Name: "揮砍", EnergyCost: 10, Damage: 15, PreCastTime: 0, CastTime: 0, ActionCooldown: 1 * time.Second, IsAoE: false}
-	heavyStrike := &AttackMove{Name: "強力一擊", EnergyCost: 35, Damage: 80, PreCastTime: 1 * time.Second, CastTime: 0, ActionCooldown: 2 * time.Second, IsAoE: false}
+	slash := &AttackMove{Name: "揮砍", EnergyCost: 10, Damage: 15, PreCastTime: 0, ActionCooldown: 1 * time.Second, IsAoE: false}
+	heavyStrike := &AttackMove{Name: "強力一擊", EnergyCost: 35, Damage: 80, PreCastTime: 1 * time.Second, ActionCooldown: 2 * time.Second, IsAoE: false}
 	stomp := &AttackMove{Name: "踐踏", EnergyCost: 20, Damage: 4, PreCastTime: 1 * time.Second, CastTime: 2 * time.Second, ActionCooldown: 4 * time.Second, IsAoE: true, IsChanneling: true}
-	bite := &AttackMove{Name: "啃咬", EnergyCost: 10, Damage: 12, PreCastTime: 0, CastTime: 0, ActionCooldown: 1 * time.Second, IsAoE: false}
+	bite := &AttackMove{Name: "啃咬", EnergyCost: 10, Damage: 12, PreCastTime: 0, ActionCooldown: 1 * time.Second, IsAoE: false}
+	heal := &AttackMove{Name: "治療", EnergyCost: 25, HealAmount: 100, PreCastTime: 1 * time.Second, ActionCooldown: 1 * time.Second}
 	soulEjection := &AttackMove{Name: "靈魂出竅", EnergyCost: 10, PreCastTime: 500 * time.Millisecond}
 
 	player := NewPlayer("英雄", 100, false, 0)
-	player.CurrentShell = NewShell("人類軀殼", 500, 5, []*AttackMove{slash, heavyStrike, soulEjection})
+	player.CurrentShell = NewShell("人類軀殼", 500, 5, []*AttackMove{slash, heavyStrike, stomp, bite, heal, soulEjection})
 
 	enemies := []*Player{
 		NewPlayer("哥布林", 999, false, 0),
@@ -505,6 +515,9 @@ func (b *Battle) gameLoop() {
 					} else if b.player.CastingMove.Name == "靈魂出竅" {
 						logsThisTick = append(logsThisTick, "[purple]你施展了靈魂出竅，脫離了當前的軀殼！[-:-:-]")
 						b.player.CurrentShell = nil
+					} else if b.player.CastingMove.HealAmount > 0 {
+						b.player.CurrentShell.Heal(b.player.CastingMove.HealAmount)
+						logsThisTick = append(logsThisTick, fmt.Sprintf("[green]你治療了自己 %d 點生命！[-:-:-]", b.player.CastingMove.HealAmount))
 					} else {
 						logsThisTick = append(logsThisTick, b.player.Attack(target, b.enemies, b.player.CastingMove)...)
 					}
@@ -708,12 +721,10 @@ func (b *Battle) setupInputHandling() {
 			return event
 		}
 
-		if b.player.ActionState != "Idle" || b.nextPlayerAction != nil || b.nextPlayerMeditate || b.nextPlayerPossess {
-			return event
-		}
-
 		if b.player.ActionState == "Channeling" {
 			b.interruptChanneling = true
+		} else if b.player.ActionState != "Idle" || b.nextPlayerAction != nil || b.nextPlayerMeditate || b.nextPlayerPossess {
+			return event
 		}
 
 		runeKey := event.Rune()
@@ -729,38 +740,39 @@ func (b *Battle) setupInputHandling() {
 		now := time.Now()
 		target := b.enemies[b.currentTargetIndex]
 
-		switch runeKey {
-		case 'q':
-			if b.player.CurrentShell != nil && len(b.player.CurrentShell.Skills) > 0 {
-				skill := b.player.CurrentShell.Skills[0]
-				if now.After(b.player.SkillCooldowns[skill.Name]) && b.player.Energy >= skill.EnergyCost && (skill.IsAoE || (target.CurrentShell != nil && !target.CurrentShell.IsDefeated())) {
-					b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = skill, false, false
-					b.player.CastingTarget = target
+		skillKeyMap := map[rune]int{'q': 0, 'w': 1, 'e': 2, 'r': 3, 'a': 4, 's': 5, 'd': 6, 'f': 7}
+
+		if skillIndex, ok := skillKeyMap[runeKey]; ok {
+			if b.player.CurrentShell != nil && len(b.player.CurrentShell.Skills) > skillIndex {
+				skill := b.player.CurrentShell.Skills[skillIndex]
+				if now.After(b.player.SkillCooldowns[skill.Name]) && b.player.Energy >= skill.EnergyCost {
+					if skill.HealAmount > 0 { // 治療是自身技能
+						b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = skill, false, false
+						b.player.CastingTarget = b.player
+					} else if skill.IsAoE || (target.CurrentShell != nil && !target.CurrentShell.IsDefeated()) {
+						b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = skill, false, false
+						b.player.CastingTarget = target
+					}
 				}
 			}
-		case 'w':
-			if b.player.CurrentShell != nil && len(b.player.CurrentShell.Skills) > 1 {
-				skill := b.player.CurrentShell.Skills[1]
-				if now.After(b.player.SkillCooldowns[skill.Name]) && b.player.Energy >= skill.EnergyCost && (skill.IsAoE || (target.CurrentShell != nil && !target.CurrentShell.IsDefeated())) {
-					b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = skill, false, false
-					b.player.CastingTarget = target
+		} else {
+			switch runeKey {
+			case 'z': // 冥想
+				if b.player.CurrentShell != nil {
+					b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = nil, true, false
 				}
-			}
-		case 'e':
-			if b.player.CurrentShell != nil {
-				b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = nil, true, false
-			}
-		case 'r':
-			if b.player.CurrentShell != nil { // 靈魂出竅
-				skill := &AttackMove{Name: "靈魂出竅", EnergyCost: 10, CastTime: 500 * time.Millisecond}
-				if b.player.Energy >= skill.EnergyCost {
-					b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = skill, false, false
-					b.player.CastingTarget = nil // 無目標
-				}
-			} else { // 附身
-				if target.CurrentShell != nil && target.CurrentShell.IsDefeated() && b.player.Energy >= 60 {
-					b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = nil, false, true
-					b.player.CastingTarget = target
+			case 'x': // 附身/靈魂出竅
+				if b.player.CurrentShell != nil { // 靈魂出竅
+					skill := &AttackMove{Name: "靈魂出竅", EnergyCost: 10, PreCastTime: 500 * time.Millisecond}
+					if b.player.Energy >= skill.EnergyCost {
+						b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = skill, false, false
+						b.player.CastingTarget = nil // 無目標
+					}
+				} else { // 附身
+					if target.CurrentShell != nil && target.CurrentShell.IsDefeated() && b.player.Energy >= 60 {
+						b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = nil, false, true
+						b.player.CastingTarget = target
+					}
 				}
 			}
 		}
