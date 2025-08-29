@@ -248,44 +248,59 @@ func (p *Player) GetPlayerStatusText(b *Battle) string {
 		for i, skill := range p.CurrentShell.Skills {
 			if i < len(skillKeys) {
 				key := skillKeys[i]
-				status.WriteString(fmt.Sprintf("(%c) %-8s ", key, skill.Name))
+				leftPart := fmt.Sprintf("(%c) %-8s", key, skill.Name)
+				var rightPart string
 				if p.ActionState != "Idle" && p.CastingMove.Name == skill.Name {
-					status.WriteString(createProgressBar(p.ActionStartTime, p.EffectTime, 10, "yellow"))
+					rightPart = createProgressBar(p.ActionStartTime, p.EffectTime, 10, "yellow")
 				} else {
 					cd, onCD := p.SkillCooldowns[skill.Name]
 					if onCD && now.Before(cd) {
-						status.WriteString(createProgressBar(cd.Add(-skill.ActionCooldown), cd, 10, "red"))
+						rightPart = createProgressBar(cd.Add(-skill.ActionCooldown), cd, 10, "red")
 					} else {
-						status.WriteString("[green]準備就緒[-:-:-]")
+						rightPart = "[green]準備就緒[-:-:-]"
 					}
 				}
-				status.WriteString("\n")
+				status.WriteString(fmt.Sprintf("%-14s %s\n", leftPart, rightPart))
 			}
 		}
 		// 靈魂技能
-		status.WriteString(fmt.Sprintf("(e) %-8s ", "冥想"))
+		leftPart := fmt.Sprintf("(e) %-8s", "冥想")
+		var rightPart string
 		if p.ActionState == "Channeling" && p.CastingMove.Name == "冥想" {
-			status.WriteString("[green]引導中...[-:-:-]")
+			rightPart = "[green]引導中...[-:-:-]"
 		} else {
-			status.WriteString("[green]準備就緒[-:-:-]")
+			rightPart = "[green]準備就緒[-:-:-]"
 		}
-		status.WriteString("\n")
+		status.WriteString(fmt.Sprintf("%-14s %s\n", leftPart, rightPart))
 
 		target := b.enemies[b.currentTargetIndex]
+		var rSkillName string
 		if target.CurrentShell != nil && target.CurrentShell.IsDefeated() {
-			status.WriteString(fmt.Sprintf("(r) %-8s ", "附身"))
+			rSkillName = "附身"
 		} else {
-			status.WriteString(fmt.Sprintf("(r) %-8s ", "靈魂出竅"))
+			rSkillName = "靈魂出竅"
 		}
+		leftPart = fmt.Sprintf("(r) %-8s", rSkillName)
 		if p.ActionState == "Casting" && (p.CastingMove.Name == "附身" || p.CastingMove.Name == "靈魂出竅") {
-			status.WriteString(createProgressBar(p.ActionStartTime, p.EffectTime, 10, "yellow"))
+			rightPart = createProgressBar(p.ActionStartTime, p.EffectTime, 10, "yellow")
 		} else {
-			status.WriteString("[green]準備就緒[-:-:-]")
+			rightPart = "[green]準備就緒[-:-:-]"
 		}
-		status.WriteString("\n")
+		status.WriteString(fmt.Sprintf("%-14s %s\n", leftPart, rightPart))
 
 	} else {
 		status.WriteString("[purple]狀態: 靈體[-:-:-]\n")
+		target := b.enemies[b.currentTargetIndex]
+		if target.CurrentShell != nil && target.CurrentShell.IsDefeated() {
+			leftPart := fmt.Sprintf("(r) %-8s", "附身")
+			var rightPart string
+			if p.ActionState == "Casting" && p.CastingMove.Name == "附身" {
+				rightPart = createProgressBar(p.ActionStartTime, p.EffectTime, 10, "yellow")
+			} else {
+				rightPart = "[green]準備就緒[-:-:-]"
+			}
+			status.WriteString(fmt.Sprintf("%-14s %s\n", leftPart, rightPart))
+		}
 	}
 
 	return status.String()
@@ -347,7 +362,7 @@ func NewBattle(app *tview.Application) *Battle {
 	}
 
 	b.playerStatus = tview.NewTextView()
-	b.playerStatus.SetDynamicColors(true).SetTextAlign(tview.AlignCenter).SetBorder(true).SetTitle("你的狀態")
+	b.playerStatus.SetDynamicColors(true).SetTextAlign(tview.AlignLeft).SetBorder(true).SetTitle("你的狀態")
 	b.targetStatus = tview.NewTextView()
 	b.targetStatus.SetDynamicColors(true).SetTextAlign(tview.AlignCenter).SetBorder(true).SetTitle("鎖定目標")
 	b.enemyList = tview.NewList()
@@ -384,7 +399,7 @@ func (b *Battle) updateAllViews() {
 		if i == b.currentTargetIndex {
 			prefix = "[red]>>[-:-:-]"
 		}
-		mainText := fmt.Sprintf("%s %-8s %s", prefix, enemy.Name, status)
+		mainText := fmt.Sprintf("%s %-12s %s", prefix, enemy.Name, status)
 
 		b.enemyList.AddItem(mainText, "", 0, nil)
 	}
@@ -467,7 +482,7 @@ func (b *Battle) gameLoop() {
 			}
 
 		case "Channeling":
-			if b.interruptChanneling || b.nextPlayerAction != nil || b.nextPlayerPossess {
+			if b.interruptChanneling {
 				logsThisTick = append(logsThisTick, fmt.Sprintf("[orange]你中斷了 [%s] 的引導。[-:-:-]", b.player.CastingMove.Name))
 				b.player.SkillCooldowns[b.player.CastingMove.Name] = now.Add(b.player.CastingMove.ActionCooldown)
 				b.player.ActionState = "Idle"
@@ -660,7 +675,7 @@ func (b *Battle) setupInputHandling() {
 			return event
 		}
 
-		if b.player.ActionState != "Idle" || b.nextPlayerAction != nil || b.nextPlayerMeditate || b.nextPlayerPossess {
+		if b.player.ActionState == "Casting" || b.nextPlayerAction != nil || b.nextPlayerMeditate || b.nextPlayerPossess {
 			return event
 		}
 
