@@ -70,10 +70,11 @@ type Battle struct {
 	player  *Player
 	enemies []*Player
 
-	currentTargetIndex int
-	logHistory         []string
-	pendingSpawns      []PendingSpawn
-	gameIsOver         bool
+	currentTargetIndex  int
+	logHistory          []string
+	pendingSpawns       []PendingSpawn
+	gameIsOver          bool
+	interruptChanneling bool // 新增：中斷引導的旗標
 
 	// 預約的行動
 	nextPlayerAction   *AttackMove
@@ -239,9 +240,11 @@ func (p *Player) GetPlayerStatusText(b *Battle) string {
 	}
 
 	switch p.ActionState {
-	case "Casting", "Channeling":
+	case "Casting":
 		status.WriteString(fmt.Sprintf("[yellow]%s: %s (%.1fs)[-:-:-]\n", p.ActionState, p.CastingMove.Name, time.Until(p.EffectTime).Seconds()))
 		status.WriteString(createProgressBar(p.ActionStartTime, p.EffectTime, 20, "yellow"))
+	case "Channeling":
+		status.WriteString(fmt.Sprintf("[green]引導中: %s (Esc 中斷)[-:-:-]", p.CastingMove.Name))
 	case "Idle":
 		if p.CurrentShell != nil {
 			status.WriteString("[green]狀態: 可行動[-:-:-]")
@@ -402,7 +405,7 @@ func (b *Battle) updateAllViews() {
 			}
 		}
 	}
-	b.instructions.SetText(baseInstructions + " | (1-9)選敵 | (Esc)離開")
+	b.instructions.SetText(baseInstructions + " | (1-9)選敵 | (Ctrl+C)離開")
 }
 
 // gameLoop 是戰鬥的主迴圈
@@ -476,11 +479,13 @@ func (b *Battle) gameLoop() {
 			}
 
 		case "Channeling":
-			if b.nextPlayerAction != nil || b.nextPlayerPossess {
+			if b.interruptChanneling || b.nextPlayerAction != nil || b.nextPlayerPossess {
+				logsThisTick = append(logsThisTick, fmt.Sprintf("[orange]你中斷了 [%s] 的引導。[-:-:-]", b.player.CastingMove.Name))
+				b.player.SkillCooldowns[b.player.CastingMove.Name] = now.Add(b.player.CastingMove.ActionCooldown)
 				b.player.ActionState = "Idle"
 				actionTaken = true
+				b.interruptChanneling = false
 			} else {
-				// 修正：區分持續引導和有時間限制的引導
 				switch b.player.CastingMove.Name {
 				case "冥想":
 					if now.Sub(b.player.LastChannelTick) >= 500*time.Millisecond {
@@ -631,8 +636,13 @@ func (b *Battle) setupInputHandling() {
 
 	b.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
-		case tcell.KeyEsc:
+		case tcell.KeyCtrlC:
 			b.app.Stop()
+			return nil
+		case tcell.KeyEsc:
+			if b.player.ActionState == "Channeling" {
+				b.interruptChanneling = true
+			}
 			return nil
 		case tcell.KeyTab:
 			nextIndex := (b.currentTargetIndex + 1) % len(b.enemies)
@@ -664,10 +674,6 @@ func (b *Battle) setupInputHandling() {
 
 		if b.player.ActionState != "Idle" || b.nextPlayerAction != nil || b.nextPlayerMeditate || b.nextPlayerPossess {
 			return event
-		}
-
-		if b.player.ActionState == "Channeling" {
-			b.player.ActionState = "Idle"
 		}
 
 		runeKey := event.Rune()
