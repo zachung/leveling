@@ -160,7 +160,11 @@ func (p *Player) Attack(mainTarget *Player, allPossibleTargets []*Player, move *
 		return []string{"靈體狀態無法攻擊！"}
 	}
 
-	logs := []string{fmt.Sprintf("➡️ %s 的 [%s] 擊中了目標！", p.Name, move.Name)}
+	p.LoseEnergy(move.EnergyCost)
+	logs := []string{
+		fmt.Sprintf("➡️ %s 的 [%s] 擊中了目標！", p.Name, move.Name),
+		fmt.Sprintf("   %s 消耗了 %d 點能量。", p.Name, move.EnergyCost),
+	}
 
 	finalDamage := move.Damage + p.CurrentShell.Strength
 
@@ -491,7 +495,12 @@ func (b *Battle) gameLoop() {
 			b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = nil, false, false
 
 		case "Casting":
-			if !b.player.EffectApplied && now.After(b.player.EffectTime) {
+			if b.interruptChanneling {
+				logsThisTick = append(logsThisTick, fmt.Sprintf("[orange]你中斷了 [%s] 的施法。[-:-:-]", b.player.CastingMove.Name))
+				b.player.ActionState = "Idle"
+				actionTaken = true
+				b.interruptChanneling = false
+			} else if !b.player.EffectApplied && now.After(b.player.EffectTime) {
 				if b.player.CastingMove.IsChanneling {
 					b.player.ActionState = "Channeling"
 					b.player.ActionStartTime = now
@@ -515,9 +524,11 @@ func (b *Battle) gameLoop() {
 					} else if b.player.CastingMove.Name == "靈魂出竅" {
 						logsThisTick = append(logsThisTick, "[purple]你施展了靈魂出竅，脫離了當前的軀殼！[-:-:-]")
 						b.player.CurrentShell = nil
+						b.player.LoseEnergy(b.player.CastingMove.EnergyCost)
 					} else if b.player.CastingMove.HealAmount > 0 {
 						b.player.CurrentShell.Heal(b.player.CastingMove.HealAmount)
 						logsThisTick = append(logsThisTick, fmt.Sprintf("[green]你治療了自己 %d 點生命！[-:-:-]", b.player.CastingMove.HealAmount))
+						b.player.LoseEnergy(b.player.CastingMove.EnergyCost)
 					} else {
 						logsThisTick = append(logsThisTick, b.player.Attack(target, b.enemies, b.player.CastingMove)...)
 					}
@@ -689,7 +700,7 @@ func (b *Battle) setupInputHandling() {
 			b.app.Stop()
 			return nil
 		case tcell.KeyEsc:
-			if b.player.ActionState == "Channeling" {
+			if b.player.ActionState == "Channeling" || b.player.ActionState == "Casting" {
 				b.interruptChanneling = true
 			}
 			return nil
