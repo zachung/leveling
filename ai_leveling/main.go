@@ -656,6 +656,11 @@ func (b *Battle) setupInputHandling() {
 			return event
 		}
 
+		// 修正：如果玩家正在施法或已有預約動作，則忽略新的技能輸入
+		if b.player.ActionState != "Idle" || b.nextPlayerAction != nil || b.nextPlayerMeditate || b.nextPlayerPossess {
+			return event
+		}
+
 		if b.player.ActionState == "Channeling" {
 			b.player.ActionState = "Idle"
 		}
@@ -677,7 +682,8 @@ func (b *Battle) setupInputHandling() {
 		case 'q':
 			if b.player.CurrentShell != nil && len(b.player.CurrentShell.Skills) > 0 {
 				skill := b.player.CurrentShell.Skills[0]
-				if now.After(b.player.SkillCooldowns[skill.Name]) && b.player.Energy >= skill.EnergyCost && target.CurrentShell != nil && !target.CurrentShell.IsDefeated() {
+				// 修正：加入範圍技能的目標判斷
+				if now.After(b.player.SkillCooldowns[skill.Name]) && b.player.Energy >= skill.EnergyCost && (skill.IsAoE || (target.CurrentShell != nil && !target.CurrentShell.IsDefeated())) {
 					b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = skill, false, false
 					b.player.CastingTarget = target
 				}
@@ -685,7 +691,7 @@ func (b *Battle) setupInputHandling() {
 		case 'w':
 			if b.player.CurrentShell != nil && len(b.player.CurrentShell.Skills) > 1 {
 				skill := b.player.CurrentShell.Skills[1]
-				if now.After(b.player.SkillCooldowns[skill.Name]) && b.player.Energy >= skill.EnergyCost && target.CurrentShell != nil && !target.CurrentShell.IsDefeated() {
+				if now.After(b.player.SkillCooldowns[skill.Name]) && b.player.Energy >= skill.EnergyCost && (skill.IsAoE || (target.CurrentShell != nil && !target.CurrentShell.IsDefeated())) {
 					b.nextPlayerAction, b.nextPlayerMeditate, b.nextPlayerPossess = skill, false, false
 					b.player.CastingTarget = target
 				}
