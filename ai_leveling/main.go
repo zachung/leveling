@@ -165,39 +165,6 @@ func (p *Player) LoseEnergy(amount int) {
 	}
 }
 
-// Attack 讓玩家驅動軀殼攻擊目標
-func (p *Player) Attack(mainTarget *Player, allPossibleTargets []*Player, move *AttackMove) []string {
-	if p.CurrentShell == nil {
-		return []string{"靈體狀態無法攻擊！"}
-	}
-
-	p.LoseEnergy(move.EnergyCost)
-	logs := []string{
-		fmt.Sprintf("➡️ %s 的 [%s] 擊中了目標！", p.Name, move.Name),
-		fmt.Sprintf("   %s 消耗了 %d 點能量。", p.Name, move.EnergyCost),
-	}
-
-	finalDamage := move.Damage + p.CurrentShell.Strength
-
-	if move.IsAoE {
-		logs = append(logs, "   這是一個範圍攻擊！")
-		for _, target := range allPossibleTargets {
-			if target != p && target.CurrentShell != nil && !target.CurrentShell.IsDefeated() {
-				target.CurrentShell.LoseHealth(finalDamage)
-				logs = append(logs, fmt.Sprintf("   對 %s 的軀殼造成了 %d 點傷害！", target.Name, finalDamage))
-			}
-		}
-	} else {
-		if mainTarget.CurrentShell == nil || mainTarget.CurrentShell.IsDefeated() {
-			return []string{fmt.Sprintf("目標 %s 的軀殼已無靈魂，攻擊無效。", mainTarget.Name)}
-		}
-		mainTarget.CurrentShell.LoseHealth(finalDamage)
-		logs = append(logs, fmt.Sprintf("   對 %s 的軀殼造成了 %d 點傷害！ (%d 基礎 + %d 力量)", mainTarget.Name, finalDamage, move.Damage, p.CurrentShell.Strength))
-	}
-
-	return logs
-}
-
 // StartAction 開始一個新的動作 (施法或引導)
 func (p *Player) StartAction(skill *AttackMove, target *Player, now time.Time) {
 	p.ActionState = "Casting"
@@ -206,7 +173,7 @@ func (p *Player) StartAction(skill *AttackMove, target *Player, now time.Time) {
 	p.ActionStartTime = now
 	p.EffectTime = now.Add(skill.PreCastTime)
 	p.EffectApplied = false
-	if skill.IsChanneling && skill.Name == "冥想" {
+	if skill.IsChanneling {
 		p.ActionState = "Channeling"
 		p.LastChannelTick = now
 	}
@@ -236,21 +203,26 @@ func (p *Player) Update(now time.Time, b *Battle, isPlayerControlled bool) ([]st
 	case "Idle":
 		if isPlayerControlled {
 			if b.nextPlayerAction != nil {
-				p.StartAction(b.nextPlayerAction, p.CastingTarget, now)
+				// 施法前的最終判定
+				if b.nextPlayerAction.CanUse(p, p.CastingTarget) {
+					p.StartAction(b.nextPlayerAction, p.CastingTarget, now)
+					actionTaken = true
+				} else {
+					logsThisTick = append(logsThisTick, "[red]無法施放技能！ (條件不符)[-:-:-]")
+					actionTaken = true
+				}
 				b.nextPlayerAction = nil
-				actionTaken = true
 			}
 		} else { // AI 邏輯
 			if p.CurrentShell != nil && !p.CurrentShell.IsDefeated() && b.player.CurrentShell != nil {
 				if len(p.CurrentShell.Skills) > 0 {
 					skill := p.CurrentShell.Skills[0]
-					if now.After(p.SkillCooldowns[skill.Name]) {
+					if now.After(p.SkillCooldowns[skill.Name]) && skill.CanUse(p, b.player) {
 						p.StartAction(skill, b.player, now)
 						actionTaken = true
 					}
 				}
 			}
-			// 未來可擴充 AI 在靈體狀態下的行為
 		}
 
 	case "Casting":
@@ -273,30 +245,16 @@ func (p *Player) Update(now time.Time, b *Battle, isPlayerControlled bool) ([]st
 		}
 
 	case "Channeling":
-		switch p.CastingMove.Name {
-		case "冥想":
-			if now.Sub(p.LastChannelTick) >= 500*time.Millisecond {
-				p.GainEnergy(5)
-				p.LastChannelTick = now
-				actionTaken = true
+		if now.After(p.EffectTime) && p.CastingMove.CastTime > 0 {
+			p.SkillCooldowns[p.CastingMove.Name] = now.Add(p.CastingMove.ActionCooldown)
+			p.ActionState = "Idle"
+			actionTaken = true
+		} else if now.Sub(p.LastChannelTick) >= 500*time.Millisecond {
+			if p.CastingMove.ApplyEffect != nil {
+				logsThisTick = append(logsThisTick, p.CastingMove.ApplyEffect(p, p.CastingTarget, b)...)
 			}
-		case "踐踏":
-			if now.After(p.EffectTime) {
-				p.SkillCooldowns[p.CastingMove.Name] = now.Add(p.CastingMove.ActionCooldown)
-				p.ActionState = "Idle"
-				actionTaken = true
-			} else if now.Sub(p.LastChannelTick) >= 500*time.Millisecond {
-				logsThisTick = append(logsThisTick, "[yellow]踐踏造成了範圍傷害！[-:-:-]")
-				finalDamage := p.CastingMove.Damage + p.CurrentShell.Strength
-				for _, t := range b.enemies {
-					if t.CurrentShell != nil && !t.CurrentShell.IsDefeated() {
-						t.CurrentShell.LoseHealth(finalDamage)
-						logsThisTick = append(logsThisTick, fmt.Sprintf("   對 %s 的軀殼造成了 %d 點傷害！", t.Name, finalDamage))
-					}
-				}
-				p.LastChannelTick = now
-				actionTaken = true
-			}
+			p.LastChannelTick = now
+			actionTaken = true
 		}
 	}
 
@@ -514,30 +472,70 @@ func NewBattle(app *tview.Application) *Battle {
 
 	// 為技能綁定模組化函式
 	slash.CanUse = func(c *Player, t *Player) bool {
-		return c.CurrentShell != nil && t != nil && t.CurrentShell != nil && !t.CurrentShell.IsDefeated()
+		return c.Energy >= slash.EnergyCost && c.CurrentShell != nil && t != nil && t.CurrentShell != nil && !t.CurrentShell.IsDefeated()
 	}
-	slash.ApplyEffect = func(c *Player, t *Player, b *Battle) []string { return c.Attack(t, b.enemies, c.CastingMove) }
-	heavyStrike.CanUse = slash.CanUse // 邏輯相同
-	heavyStrike.ApplyEffect = slash.ApplyEffect
-	bite.CanUse = slash.CanUse
+	slash.ApplyEffect = func(c *Player, t *Player, b *Battle) []string {
+		if c.CurrentShell == nil {
+			return nil
+		}
+		c.LoseEnergy(c.CastingMove.EnergyCost)
+		finalDamage := c.CastingMove.Damage + c.CurrentShell.Strength
+		t.CurrentShell.LoseHealth(finalDamage)
+		return []string{
+			fmt.Sprintf("➡️ %s 的 [%s] 擊中了 %s！", c.Name, c.CastingMove.Name, t.Name),
+			fmt.Sprintf("   對 %s 的軀殼造成了 %d 點傷害！", t.Name, finalDamage),
+		}
+	}
+	heavyStrike.CanUse = func(c *Player, t *Player) bool {
+		return c.Energy >= heavyStrike.EnergyCost && c.CurrentShell != nil && t != nil && t.CurrentShell != nil && !t.CurrentShell.IsDefeated()
+	}
+	heavyStrike.ApplyEffect = slash.ApplyEffect // 效果相同
+	bite.CanUse = func(c *Player, t *Player) bool {
+		return c.Energy >= bite.EnergyCost && c.CurrentShell != nil && t != nil && t.CurrentShell != nil && !t.CurrentShell.IsDefeated()
+	}
 	bite.ApplyEffect = slash.ApplyEffect
-	stomp.CanUse = func(c *Player, t *Player) bool { return c.CurrentShell != nil }   // AOE 不需要特定目標
-	stomp.ApplyEffect = func(c *Player, t *Player, b *Battle) []string { return nil } // 引導技能在 gameLoop 中處理
-	heal.CanUse = func(c *Player, t *Player) bool { return c.CurrentShell != nil }
+
+	stomp.CanUse = func(c *Player, t *Player) bool { return c.Energy >= stomp.EnergyCost && c.CurrentShell != nil }
+	stomp.ApplyEffect = func(c *Player, t *Player, b *Battle) []string {
+		logs := []string{"[yellow]踐踏造成了範圍傷害！[-:-:-]"}
+		finalDamage := c.CastingMove.Damage + c.CurrentShell.Strength
+
+		var targets []*Player
+		isPlayerCasting := (c == b.player)
+
+		if isPlayerCasting {
+			targets = b.enemies
+		} else {
+			targets = []*Player{b.player}
+		}
+
+		for _, target := range targets {
+			if target != c && target.CurrentShell != nil && !target.CurrentShell.IsDefeated() {
+				target.CurrentShell.LoseHealth(finalDamage)
+				logs = append(logs, fmt.Sprintf("   對 %s 的軀殼造成了 %d 點傷害！", target.Name, finalDamage))
+			}
+		}
+		return logs
+	}
+	heal.CanUse = func(c *Player, t *Player) bool { return c.Energy >= heal.EnergyCost && c.CurrentShell != nil }
 	heal.ApplyEffect = func(c *Player, t *Player, b *Battle) []string {
 		c.CurrentShell.Heal(c.CastingMove.HealAmount)
 		c.LoseEnergy(c.CastingMove.EnergyCost)
 		return []string{fmt.Sprintf("[green]你治療了自己 %d 點生命！[-:-:-]", c.CastingMove.HealAmount)}
 	}
 	meditate.CanUse = func(c *Player, t *Player) bool { return c.CurrentShell != nil }
-	soulEjection.CanUse = func(c *Player, t *Player) bool { return c.CurrentShell != nil }
+	meditate.ApplyEffect = func(c *Player, t *Player, b *Battle) []string {
+		c.GainEnergy(5)
+		return nil // 不產生日誌
+	}
+	soulEjection.CanUse = func(c *Player, t *Player) bool { return c.Energy >= soulEjection.EnergyCost && c.CurrentShell != nil }
 	soulEjection.ApplyEffect = func(c *Player, t *Player, b *Battle) []string {
 		c.CurrentShell = nil
 		c.LoseEnergy(c.CastingMove.EnergyCost)
 		return []string{"[purple]你施展了靈魂出竅，脫離了當前的軀殼！[-:-:-]"}
 	}
 	possess.CanUse = func(c *Player, t *Player) bool {
-		return c.CurrentShell == nil && t != nil && t.CurrentShell != nil && t.CurrentShell.IsDefeated()
+		return c.Energy >= possess.EnergyCost && c.CurrentShell == nil && t != nil && t.CurrentShell != nil && t.CurrentShell.IsDefeated()
 	}
 	possess.ApplyEffect = func(c *Player, t *Player, b *Battle) []string {
 		logs := []string{}
@@ -636,9 +634,11 @@ func (b *Battle) gameLoop() {
 
 		// 玩家中斷處理
 		if b.interruptChanneling {
-			logs, interrupted := b.player.InterruptAction(now), true
+			logs := b.player.InterruptAction(now)
 			allLogsThisTick = append(allLogsThisTick, logs...)
-			anyActionTaken = anyActionTaken || interrupted
+			if len(logs) > 0 {
+				anyActionTaken = true
+			}
 			b.interruptChanneling = false
 		}
 
@@ -812,9 +812,10 @@ func (b *Battle) setupInputHandling() {
 					return event
 				}
 
+				// CanUse 會在 gameLoop 中再次檢查，這裡只做初步判定
 				if skill.CanUse(b.player, target) {
 					b.nextPlayerAction = skill
-					b.player.CastingTarget = target // CanUse 已經處理了目標合法性
+					b.player.CastingTarget = target
 				}
 			}
 		}
