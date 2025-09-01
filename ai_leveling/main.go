@@ -20,6 +20,10 @@ type AttackMove struct {
 	ActionCooldown time.Duration // 動作冷卻
 	IsAoE          bool          // 是否為範圍攻擊
 	IsChanneling   bool          // 是否為引導技能
+
+	// 模組化技能邏輯
+	CanUse      func(caster *Player, target *Player) bool
+	ApplyEffect func(caster *Player, target *Player, b *Battle) []string
 }
 
 // Shell 代表一個可被附身的軀殼
@@ -80,8 +84,7 @@ type Battle struct {
 	interruptChanneling bool
 
 	// 預約的行動
-	nextPlayerAction  *AttackMove
-	nextPlayerPossess bool
+	nextPlayerAction *AttackMove
 
 	// UI 元件
 	playerStatus *tview.TextView
@@ -91,6 +94,13 @@ type Battle struct {
 	instructions *tview.TextView
 	mainLayout   *tview.Flex
 }
+
+// 全域技能定義，以便動態切換
+var (
+	meditate     *AttackMove
+	soulEjection *AttackMove
+	possess      *AttackMove
+)
 
 // NewPlayer 創建一個新的靈魂實例
 func NewPlayer(name string, energy int, isSlime bool, replications int, skills []*AttackMove) *Player {
@@ -264,7 +274,19 @@ func createValueBar(current, max, width int, color string) string {
 // getActiveSkills 返回玩家當前可用的所有技能列表
 func (p *Player) getActiveSkills() []*AttackMove {
 	var activeSkills []*AttackMove
-	activeSkills = append(activeSkills, p.Skills...)
+	// 添加基礎靈魂技能
+	for _, skill := range p.Skills {
+		if skill.Name == "靈魂行動" {
+			if p.CurrentShell == nil {
+				activeSkills = append(activeSkills, possess)
+			} else {
+				activeSkills = append(activeSkills, soulEjection)
+			}
+		} else {
+			activeSkills = append(activeSkills, skill)
+		}
+	}
+
 	if p.CurrentShell != nil {
 		activeSkills = append(activeSkills, p.CurrentShell.Skills...)
 	}
@@ -303,33 +325,22 @@ func (p *Player) GetPlayerStatusText(b *Battle) string {
 			break
 		}
 
-		// 動態決定技能名稱 (針對附身/靈魂出竅)
-		skillName := skill.Name
-		if skill.Name == "靈魂行動" {
-			if p.CurrentShell == nil {
-				skillName = "附身"
-			} else {
-				skillName = "靈魂出竅"
-			}
-		}
-
 		key := skillKeys[i]
-		leftPart := fmt.Sprintf("(%c) %-8s", key, skillName)
+		leftPart := fmt.Sprintf("(%c) %-8s", key, skill.Name)
 		var rightPart string
 
-		// 判斷技能是否正在施放或引導
 		isCastingThisSkill := p.ActionState != "Idle" && p.CastingMove != nil && p.CastingMove.Name == skill.Name
 		if isCastingThisSkill {
 			if p.ActionState == "Casting" {
 				rightPart = createProgressBar(p.ActionStartTime, p.EffectTime, 10, "yellow")
 			} else { // Channeling
-				if skill.CastTime > 0 { // 有時效性引導
+				if skill.CastTime > 0 {
 					rightPart = createDecreasingProgressBar(p.ActionStartTime, p.EffectTime, 10, "blue")
-				} else { // 無時效性引導 (冥想)
+				} else {
 					rightPart = "[blue]" + strings.Repeat("█", 10) + "[-:-:-]"
 				}
 			}
-		} else { // 檢查冷卻
+		} else {
 			cd, onCD := p.SkillCooldowns[skill.Name]
 			if onCD && now.Before(cd) {
 				rightPart = createProgressBar(cd.Add(-skill.ActionCooldown), cd, 10, "red")
@@ -380,12 +391,51 @@ func NewBattle(app *tview.Application) *Battle {
 	bite := &AttackMove{Name: "啃咬", EnergyCost: 10, Damage: 12, PreCastTime: 0, ActionCooldown: 1 * time.Second}
 	heal := &AttackMove{Name: "治療", EnergyCost: 25, HealAmount: 100, PreCastTime: 1 * time.Second, ActionCooldown: 1 * time.Second}
 
-	// 靈魂技能
-	meditate := &AttackMove{Name: "冥想", IsChanneling: true}
-	soulEjection := &AttackMove{Name: "靈魂出竅", EnergyCost: 10, PreCastTime: 500 * time.Millisecond, ActionCooldown: 1 * time.Second}
-	possess := &AttackMove{Name: "附身", EnergyCost: 60, PreCastTime: 2 * time.Second, ActionCooldown: 1 * time.Second}
+	// 靈魂技能 - 全域變數初始化
+	meditate = &AttackMove{Name: "冥想", IsChanneling: true}
+	soulEjection = &AttackMove{Name: "靈魂出竅", EnergyCost: 10, PreCastTime: 500 * time.Millisecond, ActionCooldown: 1 * time.Second}
+	possess = &AttackMove{Name: "附身", EnergyCost: 60, PreCastTime: 2 * time.Second, ActionCooldown: 1 * time.Second}
 
-	player := NewPlayer("英雄", 100, false, 0, []*AttackMove{meditate, soulEjection, possess})
+	// 為技能綁定模組化函式
+	slash.CanUse = func(c *Player, t *Player) bool {
+		return c.CurrentShell != nil && t != nil && t.CurrentShell != nil && !t.CurrentShell.IsDefeated()
+	}
+	slash.ApplyEffect = func(c *Player, t *Player, b *Battle) []string { return c.Attack(t, b.enemies, c.CastingMove) }
+	heavyStrike.CanUse = slash.CanUse // 邏輯相同
+	heavyStrike.ApplyEffect = slash.ApplyEffect
+	bite.CanUse = slash.CanUse
+	bite.ApplyEffect = slash.ApplyEffect
+	stomp.CanUse = func(c *Player, t *Player) bool { return c.CurrentShell != nil }   // AOE 不需要特定目標
+	stomp.ApplyEffect = func(c *Player, t *Player, b *Battle) []string { return nil } // 引導技能在 gameLoop 中處理
+	heal.CanUse = func(c *Player, t *Player) bool { return c.CurrentShell != nil }
+	heal.ApplyEffect = func(c *Player, t *Player, b *Battle) []string {
+		c.CurrentShell.Heal(c.CastingMove.HealAmount)
+		c.LoseEnergy(c.CastingMove.EnergyCost)
+		return []string{fmt.Sprintf("[green]你治療了自己 %d 點生命！[-:-:-]", c.CastingMove.HealAmount)}
+	}
+	meditate.CanUse = func(c *Player, t *Player) bool { return c.CurrentShell != nil }
+	soulEjection.CanUse = func(c *Player, t *Player) bool { return c.CurrentShell != nil }
+	soulEjection.ApplyEffect = func(c *Player, t *Player, b *Battle) []string {
+		c.CurrentShell = nil
+		c.LoseEnergy(c.CastingMove.EnergyCost)
+		return []string{"[purple]你施展了靈魂出竅，脫離了當前的軀殼！[-:-:-]"}
+	}
+	possess.CanUse = func(c *Player, t *Player) bool {
+		return c.CurrentShell == nil && t != nil && t.CurrentShell != nil && t.CurrentShell.IsDefeated()
+	}
+	possess.ApplyEffect = func(c *Player, t *Player, b *Battle) []string {
+		logs := []string{}
+		if t != nil && t.CurrentShell != nil && t.CurrentShell.IsDefeated() {
+			logs = append(logs, fmt.Sprintf("[green]你以靈體狀態，成功附身到 %s 的軀殼上！[-:-:-]", t.Name))
+			c.LoseEnergy(c.CastingMove.EnergyCost)
+			t.CurrentShell.Health = t.CurrentShell.MaxHealth
+			c.CurrentShell = t.CurrentShell
+			t.CurrentShell = nil
+		}
+		return logs
+	}
+
+	player := NewPlayer("英雄", 100, false, 0, []*AttackMove{meditate, {Name: "靈魂行動"}}) // 使用一個佔位技能
 	player.CurrentShell = NewShell("人類軀殼", 500, 5, []*AttackMove{slash, heavyStrike, stomp, bite, heal})
 
 	enemies := []*Player{
@@ -478,11 +528,9 @@ func (b *Battle) gameLoop() {
 				b.player.EffectTime = now.Add(b.nextPlayerAction.PreCastTime)
 				b.player.EffectApplied = false
 				actionTaken = true
-				if b.nextPlayerAction.IsChanneling { // 如果是引導技能，直接進入引導
-					if b.nextPlayerAction.Name == "冥想" {
-						b.player.ActionState = "Channeling"
-						b.player.LastChannelTick = now
-					}
+				if b.nextPlayerAction.IsChanneling && b.nextPlayerAction.Name == "冥想" {
+					b.player.ActionState = "Channeling"
+					b.player.LastChannelTick = now
 				}
 			}
 			b.nextPlayerAction = nil
@@ -499,28 +547,11 @@ func (b *Battle) gameLoop() {
 					b.player.ActionStartTime = now
 					b.player.EffectTime = now.Add(b.player.CastingMove.CastTime)
 					b.player.LastChannelTick = now
-					b.player.LoseEnergy(b.player.CastingMove.EnergyCost) // 引導技能在開始時消耗能量
+					b.player.LoseEnergy(b.player.CastingMove.EnergyCost)
 					actionTaken = true
 				} else {
-					target := b.player.CastingTarget
-					if b.player.CastingMove.Name == "附身" {
-						if target != nil && target.CurrentShell != nil && target.CurrentShell.IsDefeated() {
-							logsThisTick = append(logsThisTick, fmt.Sprintf("[green]你以靈體狀態，成功附身到 %s 的軀殼上！[-:-:-]", target.Name))
-							b.player.LoseEnergy(b.player.CastingMove.EnergyCost)
-							target.CurrentShell.Health = target.CurrentShell.MaxHealth
-							b.player.CurrentShell = target.CurrentShell
-							target.CurrentShell = nil
-						}
-					} else if b.player.CastingMove.Name == "靈魂出竅" {
-						logsThisTick = append(logsThisTick, "[purple]你施展了靈魂出竅，脫離了當前的軀殼！[-:-:-]")
-						b.player.CurrentShell = nil
-						b.player.LoseEnergy(b.player.CastingMove.EnergyCost)
-					} else if b.player.CastingMove.HealAmount > 0 {
-						b.player.CurrentShell.Heal(b.player.CastingMove.HealAmount)
-						logsThisTick = append(logsThisTick, fmt.Sprintf("[green]你治療了自己 %d 點生命！[-:-:-]", b.player.CastingMove.HealAmount))
-						b.player.LoseEnergy(b.player.CastingMove.EnergyCost)
-					} else {
-						logsThisTick = append(logsThisTick, b.player.Attack(target, b.enemies, b.player.CastingMove)...)
+					if b.player.CastingMove.ApplyEffect != nil {
+						logsThisTick = append(logsThisTick, b.player.CastingMove.ApplyEffect(b.player, b.player.CastingTarget, b)...)
 					}
 					b.player.SkillCooldowns[b.player.CastingMove.Name] = now.Add(b.player.CastingMove.ActionCooldown)
 					b.player.ActionState = "Idle"
@@ -749,45 +780,15 @@ func (b *Battle) setupInputHandling() {
 		if skillIndex, ok := skillKeyMap[runeKey]; ok {
 			if len(activeSkills) > skillIndex {
 				skill := activeSkills[skillIndex]
-				// 檢查冷卻和能量
-				if !(now.After(b.player.SkillCooldowns[skill.Name]) && b.player.Energy >= skill.EnergyCost) {
+
+				if !(now.After(b.player.SkillCooldowns[skill.Name])) {
 					return event
 				}
 
-				// 特定技能的合法性檢查
-				switch skill.Name {
-				case "冥想":
-					if b.player.CurrentShell == nil {
-						return event
-					}
-				case "靈魂出竅":
-					if b.player.CurrentShell == nil {
-						return event
-					}
-					b.player.CastingTarget = nil // 無目標
-				case "附身":
-					if b.player.CurrentShell != nil {
-						return event
-					}
-					if !(target.CurrentShell != nil && target.CurrentShell.IsDefeated()) {
-						return event
-					}
-					b.player.CastingTarget = target
-				default: // 攻擊或治療技能
-					if b.player.CurrentShell == nil {
-						return event
-					}
-					if skill.HealAmount > 0 {
-						b.player.CastingTarget = b.player
-					} else if skill.IsAoE || (target.CurrentShell != nil && !target.CurrentShell.IsDefeated()) {
-						b.player.CastingTarget = target
-					} else {
-						return event // 非法攻擊目標
-					}
+				if skill.CanUse(b.player, target) {
+					b.nextPlayerAction = skill
+					b.player.CastingTarget = target // CanUse 已經處理了目標合法性
 				}
-
-				// 預約技能
-				b.nextPlayerAction = skill
 			}
 		}
 
