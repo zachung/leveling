@@ -70,6 +70,13 @@ type PendingSpawn struct {
 	MaxReplications  int
 }
 
+// Command 代表一個待處理的行動指令
+type Command struct {
+	Caster *Player
+	Skill  *AttackMove
+	Target *Player
+}
+
 // Battle 結構封裝了一場戰鬥的所有狀態和 UI
 type Battle struct {
 	app *tview.Application
@@ -82,9 +89,7 @@ type Battle struct {
 	pendingSpawns       []PendingSpawn
 	gameIsOver          bool
 	interruptChanneling bool
-
-	// 預約的行動
-	nextPlayerAction *AttackMove
+	commandQueue        []*Command // 指令佇列
 
 	// UI 元件
 	playerStatus *tview.TextView
@@ -173,11 +178,10 @@ func (p *Player) StartAction(skill *AttackMove, target *Player, now time.Time) {
 	p.ActionStartTime = now
 	p.EffectTime = now.Add(skill.PreCastTime)
 	p.EffectApplied = false
-	// 如果技能是引導技，並且沒有施法前搖，則直接進入引導狀態
 	if skill.IsChanneling && skill.PreCastTime == 0 {
 		p.ActionState = "Channeling"
 		p.LastChannelTick = now
-		p.EffectTime = now.Add(skill.CastTime) // 設定引導總時間
+		p.EffectTime = now.Add(skill.CastTime)
 	}
 }
 
@@ -186,7 +190,6 @@ func (p *Player) InterruptAction(now time.Time) []string {
 	var logs []string
 	if p.ActionState == "Casting" || p.ActionState == "Channeling" {
 		logs = append(logs, fmt.Sprintf("[orange]%s 中斷了 [%s]。[-:-:-]", p.Name, p.CastingMove.Name))
-		// 如果是引導技能，中斷時進入冷卻
 		if p.ActionState == "Channeling" {
 			p.SkillCooldowns[p.CastingMove.Name] = now.Add(p.CastingMove.ActionCooldown)
 		}
@@ -196,37 +199,12 @@ func (p *Player) InterruptAction(now time.Time) []string {
 }
 
 // Update 處理角色單個 tick 的所有邏輯
-func (p *Player) Update(now time.Time, b *Battle, isPlayerControlled bool) ([]string, bool) {
+func (p *Player) Update(now time.Time, b *Battle) ([]string, bool) {
 	var logsThisTick []string
 	var actionTaken bool
 
 	// --- 狀態機邏輯 ---
 	switch p.ActionState {
-	case "Idle":
-		if isPlayerControlled {
-			if b.nextPlayerAction != nil {
-				// 施法前的最終判定
-				if b.nextPlayerAction.CanUse(p, p.CastingTarget) {
-					p.StartAction(b.nextPlayerAction, p.CastingTarget, now)
-					actionTaken = true
-				} else {
-					logsThisTick = append(logsThisTick, "[red]無法施放技能！ (條件不符)[-:-:-]")
-					actionTaken = true
-				}
-				b.nextPlayerAction = nil
-			}
-		} else { // AI 邏輯
-			if p.CurrentShell != nil && !p.CurrentShell.IsDefeated() && b.player.CurrentShell != nil {
-				if len(p.CurrentShell.Skills) > 0 {
-					skill := p.CurrentShell.Skills[0]
-					if now.After(p.SkillCooldowns[skill.Name]) && skill.CanUse(p, b.player) {
-						p.StartAction(skill, b.player, now)
-						actionTaken = true
-					}
-				}
-			}
-		}
-
 	case "Casting":
 		if !p.EffectApplied && now.After(p.EffectTime) {
 			if p.CastingMove.IsChanneling {
@@ -571,10 +549,11 @@ func NewBattle(app *tview.Application) *Battle {
 	enemies[2].CurrentShell = NewShell("骸骨軀殼", 120, 8, []*AttackMove{stomp})
 
 	b := &Battle{
-		app:        app,
-		player:     player,
-		enemies:    enemies,
-		logHistory: []string{"戰鬥開始！"},
+		app:          app,
+		player:       player,
+		enemies:      enemies,
+		logHistory:   []string{"戰鬥開始！"},
+		commandQueue: make([]*Command, 0),
 	}
 
 	b.playerStatus = tview.NewTextView()
@@ -651,8 +630,34 @@ func (b *Battle) gameLoop() {
 			b.interruptChanneling = false
 		}
 
+		// AI 產生指令
+		for _, enemy := range b.enemies {
+			if enemy.ActionState == "Idle" && enemy.CurrentShell != nil && !enemy.CurrentShell.IsDefeated() && b.player.CurrentShell != nil {
+				if len(enemy.CurrentShell.Skills) > 0 {
+					skill := enemy.CurrentShell.Skills[0]
+					if now.After(enemy.SkillCooldowns[skill.Name]) {
+						b.commandQueue = append(b.commandQueue, &Command{Caster: enemy, Skill: skill, Target: b.player})
+					}
+				}
+			}
+		}
+
+		// 處理指令佇列
+		for _, cmd := range b.commandQueue {
+			if cmd.Caster.ActionState == "Idle" {
+				if cmd.Skill.CanUse(cmd.Caster, cmd.Target) {
+					cmd.Caster.StartAction(cmd.Skill, cmd.Target, now)
+					anyActionTaken = true
+				} else if cmd.Caster == b.player {
+					allLogsThisTick = append(allLogsThisTick, "[red]無法施放技能！ (條件不符)[-:-:-]")
+					anyActionTaken = true
+				}
+			}
+		}
+		b.commandQueue = nil // 清空佇列
+
 		// 更新玩家
-		playerLogs, playerAction := b.player.Update(now, b, true)
+		playerLogs, playerAction := b.player.Update(now, b)
 		allLogsThisTick = append(allLogsThisTick, playerLogs...)
 		anyActionTaken = anyActionTaken || playerAction
 
@@ -663,7 +668,7 @@ func (b *Battle) gameLoop() {
 				allEnemiesDefeated = false
 			}
 
-			enemyLogs, enemyAction := enemy.Update(now, b, false)
+			enemyLogs, enemyAction := enemy.Update(now, b)
 			allLogsThisTick = append(allLogsThisTick, enemyLogs...)
 			anyActionTaken = anyActionTaken || enemyAction
 
@@ -793,7 +798,7 @@ func (b *Battle) setupInputHandling() {
 
 		if b.player.ActionState == "Channeling" {
 			b.interruptChanneling = true
-		} else if b.player.ActionState != "Idle" || b.nextPlayerAction != nil {
+		} else if b.player.ActionState != "Idle" {
 			return event
 		}
 
@@ -821,11 +826,13 @@ func (b *Battle) setupInputHandling() {
 					return event
 				}
 
-				// CanUse 會在 gameLoop 中再次檢查，這裡只做初步判定
-				if skill.CanUse(b.player, target) {
-					b.nextPlayerAction = skill
-					b.player.CastingTarget = target
-				}
+				// 只將指令加入佇列，不在此處做 CanUse 判定
+				b.commandQueue = append(b.commandQueue, &Command{
+					Caster: b.player,
+					Skill:  skill,
+					Target: target,
+				})
+
 			}
 		}
 
