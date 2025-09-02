@@ -173,9 +173,11 @@ func (p *Player) StartAction(skill *AttackMove, target *Player, now time.Time) {
 	p.ActionStartTime = now
 	p.EffectTime = now.Add(skill.PreCastTime)
 	p.EffectApplied = false
-	if skill.IsChanneling {
+	// 如果技能是引導技，並且沒有施法前搖，則直接進入引導狀態
+	if skill.IsChanneling && skill.PreCastTime == 0 {
 		p.ActionState = "Channeling"
 		p.LastChannelTick = now
+		p.EffectTime = now.Add(skill.CastTime) // 設定引導總時間
 	}
 }
 
@@ -448,6 +450,13 @@ func (p *Player) GetEnemyStatusText() string {
 		case "Casting":
 			status.WriteString(fmt.Sprintf("[yellow]施法中: %s (%.1fs)[-:-:-]\n", p.CastingMove.Name, time.Until(p.EffectTime).Seconds()))
 			status.WriteString(createProgressBar(p.ActionStartTime, p.EffectTime, 20, "yellow"))
+		case "Channeling":
+			status.WriteString(fmt.Sprintf("[blue]引導中: %s (%.1fs)[-:-:-]\n", p.CastingMove.Name, time.Until(p.EffectTime).Seconds()))
+			if p.CastingMove.CastTime > 0 {
+				status.WriteString(createDecreasingProgressBar(p.ActionStartTime, p.EffectTime, 20, "blue"))
+			} else {
+				status.WriteString("[blue]" + strings.Repeat("█", 20) + "[-:-:-]")
+			}
 		case "Idle":
 			status.WriteString("[green]狀態: 可行動[-:-:-]")
 		}
