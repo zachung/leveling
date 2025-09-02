@@ -1,4 +1,4 @@
-## Quick Start
+## 戰鬥系統
 ```shell
 go run main.go
 ```
