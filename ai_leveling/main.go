@@ -620,7 +620,7 @@ func (b *Battle) gameLoop() {
 		var allLogsThisTick []string
 		var anyActionTaken bool
 
-		// 玩家中斷處理
+		// 玩家中斷處理 (ESC)
 		if b.interruptChanneling {
 			logs := b.player.InterruptAction(now)
 			allLogsThisTick = append(allLogsThisTick, logs...)
@@ -650,6 +650,18 @@ func (b *Battle) gameLoop() {
 					anyActionTaken = true
 				} else if cmd.Caster == b.player {
 					allLogsThisTick = append(allLogsThisTick, "[red]無法施放技能！ (條件不符)[-:-:-]")
+					anyActionTaken = true
+				}
+			} else if cmd.Caster == b.player && cmd.Caster.ActionState == "Channeling" {
+				// 玩家用新技能中斷引導
+				logs := cmd.Caster.InterruptAction(now)
+				allLogsThisTick = append(allLogsThisTick, logs...)
+				if len(logs) > 0 {
+					anyActionTaken = true
+				}
+
+				if cmd.Skill.CanUse(cmd.Caster, cmd.Target) {
+					cmd.Caster.StartAction(cmd.Skill, cmd.Target, now)
 					anyActionTaken = true
 				}
 			}
@@ -796,9 +808,8 @@ func (b *Battle) setupInputHandling() {
 			return event
 		}
 
-		if b.player.ActionState == "Channeling" {
-			b.interruptChanneling = true
-		} else if b.player.ActionState != "Idle" {
+		// 僅在玩家閒置或引導時才接受新技能指令
+		if b.player.ActionState != "Idle" && b.player.ActionState != "Channeling" {
 			return event
 		}
 
@@ -826,7 +837,7 @@ func (b *Battle) setupInputHandling() {
 					return event
 				}
 
-				// 只將指令加入佇列，不在此處做 CanUse 判定
+				// 只將指令加入佇列
 				b.commandQueue = append(b.commandQueue, &Command{
 					Caster: b.player,
 					Skill:  skill,
